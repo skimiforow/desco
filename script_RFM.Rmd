@@ -1,0 +1,74 @@
+---
+title: "DESCO - Knowledge Discovery"
+author: "1141074 - Sérgio Silva | 1040706 - Sérgio Castro | 1970400 - Pedro Neves"
+
+date: "5/3/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].	
+
+
+Loading of the tables to create model RFM
+```{r}
+library(data.table)
+
+keycols <- c('Store', 'Date', 'Time', 'TransactionID')
+
+transactions = fread('DATA-CRM/TRANSACTION.dat')
+setkeyv(transactions, keycols)
+
+trans_items = fread('DATA-CRM/TRANSACTION_ITEM.dat')
+setkeyv(trans_items, keycols)
+
+
+```
+
+Generating Recency
+```{r}
+analysis_date <- as.Date(Sys.Date())
+transactions[,Date := as.Date(as.character.Date(transactions[,2]),"%Y%m%d")]
+transactions <- na.omit(transactions, cols = "Date")
+transactions[, `LatestOrder` := max(Date), by = CardID]
+transactions[, `DaysSinceLastOrder` := analysis_date-LatestOrder, by = CardID]
+
+```
+
+
+Generating Frequency
+```{r}
+transactions[, `freq` := .N, by = CardID]
+
+
+```
+
+
+Generating Monetary
+```{r}
+trans_items[,.(Total = sum(Amount)), by = keycols]
+
+```
+
+Merging the data
+```{r}
+
+transac_merged <- merge(transactions,trans_items, by = keycols)
+
+
+```
+
+
+
+Aplying the model
+
+```{r}
+library(rfm)
+
+rfm_table_order()
+
+```
+
