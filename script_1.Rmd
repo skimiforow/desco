@@ -135,7 +135,18 @@ table(is.na(item))
 
 Carregamento da tabela TRANSACTION.dat
 ```{r}
-transaction <- read.table("DATA-CRM/TRANSACTION.dat",header = TRUE,sep = ",",dec = ",")
+library(dplyr)
+transaction <- read.table("DATA-CRM/TRANSACTION.dat",header = TRUE,sep = ",")
+trs_opt <- transaction[,c(2,4,5)]
+setDT(trs_opt)
+transaction_item <- read.table("DATA-CRM/TRANSACTION_ITEM.dat",header = TRUE,sep = ",")
+trs_item_opt <- transaction_item[,c(4,7)]
+setDT(trs_item_opt)
+
+dplr <- left_join(trs_opt,trs_item_opt, by="TransactionID")
+
+trd <- merge(trs_opt,trs_item_opt,by = "TransactionID")
+df_transaction <- as.data.frame(transaction)
 ```
 Verifica??????o dos dados da tabela transaction, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 
@@ -171,24 +182,20 @@ Building the RFM (recency, frequency and monetary) model.
 
 Recency
 ````{r}
-library(data.table)
-setDT(transaction)[,as.Date(as.character(transaction$Date),"%d.%m.%y")]
+library(rfm)
+analysis_date <- as.Date(Sys.Date())
+df_transaction[,2] <- as.Date(as.character.Date(df_transaction[,2]),"%Y%m%d")
+rfm_result <- rfm_table_order(df_transaction,df_transaction$CardID,df_transaction$Date)
 
-transaction[,  `:=`(
-           daystillastord = Sys.Date() - max(as.numeric(transaction$Date)),
-           daysbetlastord = if(.N == 1L) "first order" else as.character(max(as.numeric(transaction$Date)) - max(as.numeric(transaction$Date)[as.numeric(transaction$Date) != max(as.numeric(transaction$Date))])),
-           meandiff = mean(diff(as.numeric(transaction$Date))),
-           OrdsLastFullYear = sum(year(as.numeric(transaction$Date)) == year(Sys.Date()) - 1)
-           ),
-   by = transaction$CardID][]
+
 ```
 
 Frequency
 ````{r}
 library(data.table)
-transaction_1 = data.table(transaction)
+df_transaction = data.table(df_transaction)
 
-transaction_1[, `freq-loc` := .N, by = transaction$CardID]
+df_transaction[, `freq-loc` := .N, by = transaction$CardID]
 
 
 ```
