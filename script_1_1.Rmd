@@ -1,0 +1,256 @@
+---
+title: "DESCO - Knowledge Discovery"
+author: "1141074 - S???rgio Silva | 1040706 - S???rgio Castro | 1970400 - Pedro Neves"
+
+date: "5/3/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+The	project	must	follow	the	CRISP-DM	methodology	[3]	and	have	R	scripts	adequate	to	each	of	its	phases:
+??? data	exploration	and	preparation;
+
+Carregamento da tabela BRAND.dat
+```{r data Loading}
+brand <- read.table("DATA-CRM/BRAND.dat",header = TRUE,sep = ",",dec = ",")
+```
+Verifica??????o dos dados da tabela brand, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(brand)
+dim(brand)
+str(brand)
+
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(brand))
+unique(brand)
+```
+
+
+Carregamento da tabela CAMPAIGN.dat
+```{r}
+campaign <- read.table("DATA-CRM/CAMPAIGN.dat",header = TRUE,sep = ",",dec = ",")
+```
+Verifica??????o dos dados da tabela campaign, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(campaign)
+dim(campaign)
+str(campaign)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(campaign))
+unique(campaign)
+```
+
+
+
+Carregamento da tabela CARD.dat
+```{r}
+card <- read.table("DATA-CRM/CARD.dat",header = TRUE,sep = ",",dec = ",")
+```
+Verifica??????o dos dados da tabela card, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(card)
+dim(card)
+str(card)
+nrow(card[!complete.cases(card),])
+```
+??? preciso tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem n???meros negativos. No MaritialStatus a dados nulos que devem ser tratados tamb???m.
+
+```{r}
+card[card<0]<-0
+
+
+```
+
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(card))
+unique(card)
+```
+
+
+
+Carregamento da tabela CATEGORY.dat
+```{r}
+category <- read.table("DATA-CRM/CATEGORY.dat",header = TRUE,sep = ",",dec = ",")
+```
+Verifica??????o dos dados da tabela category, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(category)
+dim(category)
+str(category)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(category))
+```
+
+
+Carregamento da tabela SUBCATEGORY.dat
+```{r}
+subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat",header = TRUE,sep = ",",dec = ",")
+```
+Verifica??????o dos dados da tabela subcategory, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(subcategory)
+dim(subcategory)
+str(subcategory)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(subcategory))
+```
+
+
+
+
+Carregamento da tabela ITEM.dat
+```{r}
+item <- read.table("DATA-CRM/ITEM.dat",header = TRUE,sep = ";")
+```
+Verifica??????o dos dados da tabela item, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(item)
+dim(item)
+str(item)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(item))
+```
+
+
+Carregamento da tabelas TRANSACTION.dat e TRANSACTION.dat
+```{r}
+transaction <- read.table("DATA-CRM/TRANSACTION.dat", header = TRUE, sep = ",", dec = ",")
+```
+Verificação dos dados da tabela transaction, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(transaction)
+dim(transaction)
+str(transaction)
+
+summary(transactionitem)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(transaction))
+```
+
+
+Carregamento da tabela TRANSACTION_ITEM.dat
+```{r}
+transactionitem <- read.table("DATA-CRM/TRANSACTION_ITEM.dat", header = TRUE ,sep = ",", dec = ",")
+```
+Verificação dos dados da tabela transactionitem, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(transactionitem)
+dim(transactionitem)
+str(transactionitem)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(transactionitem))
+```
+
+
+Building the RFM (recency, frequency and monetary) model.
+
+Carregar tabelas como data.tables e ordenar
+```{r}
+library(data.table)
+
+keycols <- c('Store', 'Date', 'Time', 'TransactionID')
+
+transactions = fread('DATA-CRM/TRANSACTION.dat')
+setkeyv(transactions, keycols)
+
+trans_items = fread('DATA-CRM/TRANSACTION_ITEM.dat')
+setkeyv(trans_items, keycols)
+```
+
+Fazer 'join' das duas tabelas e calcular o total ('Amount') de cada transação 
+```{r}
+Result <- merge(transactions, trans_items, all = TRUE)
+
+# Chaves duplicadas, ie, observações correspondentes a transações com mais do que 1 produto
+Result[duplicated(Result, by = keycols)]
+       
+
+Result[, lapply(.SD, sum), by = keycols, .SDcols='Amount']
+
+Result[, `freq-loc` := .N, by = keycols]
+
+
+trans_item[, Date := as.IDate(as.character(trans_item$Date), '%Y%m%d')]
+DTtransaction[, Date := as.IDate(as.character(DTtransaction$Date), '%Y%m%d')]
+```
+
+```{r}
+
+ans <- trans_item[, sum(Amount), by = trans_item$Date]
+
+summary(trans)
+str(trans)
+
+
+transaction[,  `:=`(
+           daystillastord = Sys.Date() - max(as.numeric(transaction$Date)),
+           daysbetlastord = if(.N == 1L) "first order" else as.character(max(as.numeric(transaction$Date)) - max(as.numeric(transaction$Date)[as.numeric(transaction$Date) != max(as.numeric(transaction$Date))])),
+           meandiff = mean(diff(as.numeric(transaction$Date))),
+           OrdsLastFullYear = sum(year(as.numeric(transaction$Date)) == year(Sys.Date()) - 1)
+           ),
+   by = transaction$CardID][]
+```
+
+Frequency
+````{r}
+library(data.table)
+transaction_1 = data.table(transaction)
+
+transaction_1[, `freq-loc` := .N, by = transaction$CardID]
+
+
+```
+
+
+
+```{r}
+# Merging the data sets
+
+#card_data <- merge(card,campaign, by.x = ("CardID"), by.y = ("CardID"))
+#item_data <- merge(item,category,by.x = ("CategoryCode"), by.y = ("CategoryCode"))
+#item_data <- merge(item_data,subcategory,by.x = ("SubCategoryCode"), by.y = ("SubCategoryCode"))
+#transaction_item_data <- merge(transactionitem,item_data,by.x = ("ItemCode"), by.y = ("ItemCode"))
+#transaction_data <- merge(transaction,transaction_item_data,item_data,by.x = ("TransactionID"), by.y = ("TransactionID"))
+```
+
+```{r}
+barplot(table(cust_info_calls$AgeGrp),ylim=c(0,25000),main="Age", col=c(1,2,3))
+
+```
+
+
+
+??? data	pre-processing;
+??? creation	of	models	using	some	data	mining	algorithms	studied;
+??? evaluation	of	the	models	created.
+The	models	created	should	provide:
+??? better	knowledge	of	customer	groups profile;
+??? indication	of	the	most	appropriate	products	for	each	customer	group;
+??? forecast	responses	to	future	campaigns
