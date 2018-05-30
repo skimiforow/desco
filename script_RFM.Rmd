@@ -10,16 +10,18 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-# Clean Environment
+#Limpeza do ambiente
+
+```{r Clean Environment}
 rm(list = ls())
 ```
 
+#Carregamento das tabelas de transaction
 
 The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].	
 
 Loading of the tables to create model RFM
-```{r}
+```{r Carregamento}
 library(data.table)
 
 keycols <- c('Store', 'Date', 'Time', 'TransactionID')
@@ -32,26 +34,50 @@ setkeyv(trans_items, keycols)
 
 ```
 
-Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
-```{r}
-Result <- merge(transactions, trans_items, all = TRUE)
+##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
 
+
+```{r Merge}
+Result <- merge(transactions, trans_items, all = TRUE)
 Result[, Date := as.Date(as.character.Date(Date),"%Y%m%d")]
 Result <- na.omit(Result, cols = "Date")
 ```
 
-Gerar RFM Score com package rfm
+
+## Gerar RFM Score com package rfm
+
 Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
-```{r}
+```{r RFM algorithm}
 library(rfm)
-analysis_date <- Sys.Date()
+analysis_date <- as.Date("2015-01-01")
 
 orders <- Result[, .(CardID, Date, Amount)]
-rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis_date)
+rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis_date,recency_bins = 5,frequency_bins = 5,monetary_bins = 5)
 
 View(rfm_result$rfm)
+summary(rfm_result)
+str(rfm_result)
+
+rfm_bar_chart(rfm_result)
+
+rfm_histograms(rfm_result)
+
+# Correlacionar a Frequência com o valor gasto
+rfm_fm_plot(rfm_result)
+
+# Correlacionar a data da última compra com a frequência de compra
+rfm_rf_plot(rfm_result)
+
+rfm_heatmap(rfm_result)
 ```
 
+O valor de "Recency" é classificado numa escala de 1 a 5 em que o valor 5 é atribuido aos clientes que compraram mais recentemente.
+O valor de "Frequency" usa uma escala de 1 a 5 para indicar com 5 o cliente que compra com mais frenquência
+Por fim o valor de Monetary, classifica também com uma escala de 1 a 5, indicando com 5 os clientes que gastam mais valor.
+
+As divisões dos cestos é feita com o valor por defeito de 5, que divide em os valores a cada 20% dos dados.
+
+Caso fosse necessário o calculo dos atributos do algoritmo RFM, poderia-mos usar as seguintes formulas. As mesmas não foram usadas pois usamos o package RFM que nos dá este calculo automáticamente.
 
 Cálculo "Manual" das três dimensões do RFM
 ```{r}
@@ -66,4 +92,128 @@ rfm_recency <- Result[, .(LatestOrder = max(Date)), by = CardID][, .(Recency = a
 ```
 
 
-# Confirmar se se pode utilizar aquele package ou tem de se gerar a pontuação RFM segundo o método descrito em "A review of the application of RFM model. African Journal of Business Management" ([2] da referências do enunciado)
+
+#1. Exploração e preparação dos dados
+
+
+##Tabela BRAND.DAT
+```{r BRAND.dat}
+brand <- read.table("DATA-CRM/BRAND.dat",header = TRUE,sep = ",",dec = ",")
+```
+
+Verificação dos dados da tabela brand, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r }
+summary(brand)
+dim(brand)
+str(brand)
+
+```
+
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(brand))
+unique(brand)
+table(duplicated(brand))
+```
+
+
+
+##Tabela CAMPAIGN.DAT
+Carregamento da tabela CAMPAIGN.dat
+```{r CAMPAIGN.dat}
+campaign <- read.table("DATA-CRM/CAMPAIGN.dat",header = TRUE,sep = ",",dec = ",")
+```
+Verifica??????o dos dados da tabela campaign, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(campaign)
+dim(campaign)
+str(campaign)
+```
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(campaign))
+unique(campaign)
+table(duplicated(campaign))
+
+```
+
+
+##Tabela CARD.dat
+```{r CARD.dat}
+card <- read.table("DATA-CRM/CARD.dat",header = TRUE,sep = ",",dec = ",")
+setDT(card)
+```
+Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+
+```{r}
+summary(card)
+dim(card)
+str(card)
+nrow(card[!complete.cases(card),])
+```
+
+É preciso tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem n???meros negativos. No MaritialStatus a dados nulos que devem ser tratados também.
+
+```{r}
+card$NumChildren[card$NumChildren<0]<-0
+table(card$NumChildren)
+card$YoungestChild[card$YoungestChild<0]<-0
+table(card$YoungestChild)
+
+
+# Como existem 13 observações que indicam ter filhos, mas depois o campo do número de filhos está a 0, decidimos alterar para o atributo "HasChildren" para "N"
+card[card$NumChildren == 0 & card$HasChildren == 'Y', .N]
+
+
+
+# NumChildren>0 e HasChildren
+card[card$NumChildren >0 & card$HasChildren == 'N' & card$YoungestChild == 0, .N]
+
+
+
+```
+
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(card))
+unique(card)
+table(duplicated(card))
+
+```
+
+
+
+
+
+
+#2. Pré-processamento dos dados
+
+
+
+
+
+
+
+
+#3. Criação de modelos de Data-Mining
+
+
+
+
+
+
+
+
+
+#4. Avaliação dos modelos
+
+
+
+
+
+
+
+
+
+
