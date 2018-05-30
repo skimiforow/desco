@@ -10,8 +10,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].	
+```{r}
+# Clean Environment
+rm(list = ls())
+```
 
+
+The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].	
 
 Loading of the tables to create model RFM
 ```{r}
@@ -25,50 +30,40 @@ setkeyv(transactions, keycols)
 trans_items = fread('DATA-CRM/TRANSACTION_ITEM.dat')
 setkeyv(trans_items, keycols)
 
-
 ```
 
-Generating Recency
+Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
 ```{r}
-analysis_date <- as.Date(Sys.Date())
-transactions[,Date := as.Date(as.character.Date(transactions[,2]),"%Y%m%d")]
-transactions <- na.omit(transactions, cols = "Date")
-transactions[, `LatestOrder` := max(Date), by = CardID]
-transactions[, `DaysSinceLastOrder` := analysis_date-LatestOrder, by = CardID]
+Result <- merge(transactions, trans_items, all = TRUE)
 
+Result[, Date := as.Date(as.character.Date(Date),"%Y%m%d")]
+Result <- na.omit(Result, cols = "Date")
 ```
 
-
-Generating Frequency
-```{r}
-transactions[, `freq` := .N, by = CardID]
-
-
-```
-
-
-Generating Monetary
-```{r}
-trans_items[,.(Total = sum(Amount)), by = keycols]
-
-```
-
-Merging the data
-```{r}
-
-transac_merged <- merge(transactions,trans_items, by = keycols)
-
-
-```
-
-
-
-Aplying the model
-
+Gerar RFM Score com package rfm
+Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
 ```{r}
 library(rfm)
+analysis_date <- Sys.Date()
 
-rfm_table_order()
+orders <- Result[, .(CardID, Date, Amount)]
+rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis_date)
 
+View(rfm_result$rfm)
 ```
 
+
+Cálculo "Manual" das três dimensões do RFM
+```{r}
+# Frequency
+rfm_requency <- Result[, .N, by = CardID]
+
+# Monetary
+rfm_monetary <- Result[ , .(Total = sum(Amount)), by = CardID]
+
+# Recency
+rfm_recency <- Result[, .(LatestOrder = max(Date)), by = CardID][, .(Recency = analysis_date - LatestOrder), by = CardID]
+```
+
+
+# Confirmar se se pode utilizar aquele package ou tem de se gerar a pontuação RFM segundo o método descrito em "A review of the application of RFM model. African Journal of Business Management" ([2] da referências do enunciado)
