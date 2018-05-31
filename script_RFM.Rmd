@@ -249,7 +249,7 @@ table(is.na(item))
 
 ```{r juntar dados dos clientes}
 df_card <- merge(card,rfm_result$rfm[,c(1,9)],by.x = 'CardID', by.y = 'customer_id')
-
+attach(df_card)
 df_card <- merge(df_card,campaign, by = 'CardID')
 
 df_card[, CardStartDate := as.Date(as.character.Date(CardStartDate),"%Y%m%d")]
@@ -274,6 +274,18 @@ summary(df_card)
 
 df_card <- df_card[,c(2,3,6,8:15)]
 
+df_card$MaritalStatus[df_card$MaritalStatus==""]<-"N"
+df_card$MaritalStatus <- droplevels(df_card$MaritalStatus)
+levels(df_card$MaritalStatus)
+
+
+df_card$Gender <- factor(df_card$Gender, levels = c("M","F"),labels = c("Masculino","Feminino"))
+df_card$MaritalStatus <- factor(df_card$MaritalStatus, levels = c("M","S","O"),labels = c("Casado","Solteiro","Outro"))
+df_card$HasChildren <- factor(df_card$HasChildren, levels = c("TRUE","FALSE"),labels = c("Sim","Não"))
+df_card$Responded <- factor(df_card$Responded, levels = c("TRUE","FALSE"),labels = c("Sim","Não"))
+
+
+
 ```
 
 
@@ -289,25 +301,13 @@ pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card
 #3. Criação de modelos de Data-Mining
 
 
-
-
 ```{r}
 
 # Mudar o atributo objetivo para o fim
 df_card <- df_card[,c(1:8,10,11,9)]
 
-# Data normalization
-df_data<-scale(df_card[,-1])
+cor(data[c(6,7,8,9,10)])
 
-head(df_data)
-summary(df_data)
-
-
-pcenter <- attr(df_data, "scaled:center")
-pscale <- attr(df_data, "scaled:scale")
-
-# Transformar a matriz num data frame
-df_data <- data.frame(scale(df_card[,-1]))
 
 
 ```
