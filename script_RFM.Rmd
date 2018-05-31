@@ -165,13 +165,14 @@ table(card$YoungestChild)
 
 # Como existem 13 observações que indicam ter filhos, mas depois o campo do número de filhos está a 0, decidimos alterar para o atributo "HasChildren" para "N"
 card[card$NumChildren == 0 & card$HasChildren == 'Y', .N]
-card$HasChildren[card$YoungestChild==0]<-'N'
-
-plot(card$NumChildren~card$HasChildren)
+card$HasChildren[card$NumChildren==0]<-'N'
 
 
 # NumChildren>0 e HasChildren
 card[card$NumChildren >0 & card$HasChildren == 'N' & card$YoungestChild == 0, .N]
+card$HasChildren[card$NumChildren>0]<-'Y'
+
+plot(card$NumChildren~card$HasChildren)
 
 
 # Verificamos que o MaritialStatus possui dados a NULL
@@ -242,26 +243,89 @@ table(is.na(item))
 
 
 
-
-
-
-
-
-
-
-
 #2. Pré-processamento dos dados
 
 
+## Merge das tabelas
+
+```{r juntar dados dos clientes}
+df_card <- merge(card,rfm_result$rfm[,c(1,9)],by.x = 'CardID', by.y = 'customer_id')
+
+df_card <- merge(df_card,campaign, by = 'CardID')
+
+df_card[, CardStartDate := as.Date(as.character.Date(CardStartDate),"%Y%m%d")]
+
+df_card[, DateOfBirth := as.Date(as.character.Date(DateOfBirth),"%Y%m%d")]
+
+```
+
+```{r criar a colunas com idade e anos de cliente}
+# Criar a idade do cliente
+library(lubridate)
+yr = duration(num = 1, units = "years")
+df_card[, age := round(new_interval(DateOfBirth, analysis_date)/yr,digits = 0)][]
+
+# Anos de clientes
+df_card[, clientYears := round(new_interval(CardStartDate, analysis_date)/yr,digits = 0)][]
+
+summary(df_card)
+```
+
+```{r retirar id e código postal}
+
+df_card <- df_card[,c(2,3,6,8:15)]
+
+```
 
 
+## Visualização dos dados
 
+```{r}
+
+```
 
 
 
 #3. Criação de modelos de Data-Mining
 
 
+
+
+```{r}
+
+
+resutls.df <- data.frame(model = character(),
+                         accuracy = double(),
+                         recall = double(),
+                         precision = double(),
+                         f1 = double(),
+                         kappa = double(),
+                         fpr = double(),
+                         stringsAsFactors = FALSE)
+
+
+allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
+  
+  ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
+  
+  accuracy <- sum(diag(ctmatrix$t))/sum(ctmatrix$t)
+  
+  recall <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][1,]) #TPR Recall
+  
+  precision <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][,1])
+  
+  fpr <- ctmatrix[[1]][2,1]/sum(ctmatrix[[1]][2,])
+  
+  f1 <- 2*precision*recall/(precision+recall)
+  
+  pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
+  
+  kappa <- (accuracy - pre) / (1-pre)
+  
+  data.frame(model=modelname,accuracy=round(accuracy,digits = 3),recall=round(recall,digits = 3),precision=round(precision,digits = 3),f1=round(f1,digits = 3), kappa=round(kappa,digits = 3),fpr=round(fpr,digits = 3))
+  
+}
+```
 
 
 
