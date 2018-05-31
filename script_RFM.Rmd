@@ -1,6 +1,6 @@
 ---
 title: "DESCO - Knowledge Discovery"
-author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
+author: "1141074 - Sï¿½rgio Silva | 1040706 - Sï¿½rgio Castro | 1970400 - Pedro Neves"
 
 date: "5/3/2018"
 output: html_document
@@ -34,7 +34,7 @@ setkeyv(trans_items, keycols)
 
 ```
 
-##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
+##Fazer 'join' das duas tabelas e remover observaï¿½ï¿½es contendo datas invï¿½lidas
 
 
 ```{r Merge}
@@ -46,7 +46,7 @@ Result <- na.omit(Result, cols = "Date")
 
 ## Gerar RFM Score com package rfm
 
-Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
+Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transaï¿½ï¿½es
 ```{r RFM algorithm}
 library(rfm)
 analysis_date <- as.Date("2015-01-01")
@@ -71,7 +71,7 @@ rfm_rf_plot(rfm_result)
 rfm_heatmap(rfm_result)
 ```
 
-O valor de "Recency" é classificado numa escala de 1 a 5 em que o valor 5 é atribuido aos clientes que compraram mais recentemente.
+O valor de "Recency" ï¿½ classificado numa escala de 1 a 5 em que o valor 5 ï¿½ atribuido aos clientes que compraram mais recentemente.
 O valor de "Frequency" usa uma escala de 1 a 5 para indicar com 5 o cliente que compra com mais frenquï¿½ncia
 Por fim o valor de Monetary, classifica tambï¿½m com uma escala de 1 a 5, indicando com 5 os clientes que gastam mais valor.
 
@@ -296,7 +296,18 @@ pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card
 # Mudar o atributo objetivo para o fim
 df_card <- df_card[,c(1:8,10,11,9)]
 
+# Data normalization
+df_data<-scale(df_card[,-1])
 
+head(df_data)
+summary(df_data)
+
+
+pcenter <- attr(df_data, "scaled:center")
+pscale <- attr(df_data, "scaled:scale")
+
+# Transformar a matriz num data frame
+df_data <- data.frame(scale(df_card[,-1]))
 
 
 ```
