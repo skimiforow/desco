@@ -1,6 +1,6 @@
 ---
 title: "DESCO - Knowledge Discovery"
-author: "1141074 - Sérgio Silva | 1040706 - Sérgio Castro | 1970400 - Pedro Neves"
+author: "1141074 - Sï¿½rgio Silva | 1040706 - Sï¿½rgio Castro | 1970400 - Pedro Neves"
 
 date: "5/3/2018"
 output: html_document
@@ -34,7 +34,7 @@ setkeyv(trans_items, keycols)
 
 ```
 
-##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
+##Fazer 'join' das duas tabelas e remover observaï¿½ï¿½es contendo datas invï¿½lidas
 
 
 ```{r Merge}
@@ -46,7 +46,7 @@ Result <- na.omit(Result, cols = "Date")
 
 ## Gerar RFM Score com package rfm
 
-Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
+Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transaï¿½ï¿½es
 ```{r RFM algorithm}
 library(rfm)
 analysis_date <- as.Date("2015-01-01")
@@ -62,24 +62,24 @@ rfm_bar_chart(rfm_result)
 
 rfm_histograms(rfm_result)
 
-# Correlacionar a Frequência com o valor gasto
+# Correlacionar a Frequï¿½ncia com o valor gasto
 rfm_fm_plot(rfm_result)
 
-# Correlacionar a data da última compra com a frequência de compra
+# Correlacionar a data da ï¿½ltima compra com a frequï¿½ncia de compra
 rfm_rf_plot(rfm_result)
 
 rfm_heatmap(rfm_result)
 ```
 
-O valor de "Recency" é classificado numa escala de 1 a 5 em que o valor 5 é atribuido aos clientes que compraram mais recentemente.
-O valor de "Frequency" usa uma escala de 1 a 5 para indicar com 5 o cliente que compra com mais frenquência
-Por fim o valor de Monetary, classifica também com uma escala de 1 a 5, indicando com 5 os clientes que gastam mais valor.
+O valor de "Recency" ï¿½ classificado numa escala de 1 a 5 em que o valor 5 ï¿½ atribuido aos clientes que compraram mais recentemente.
+O valor de "Frequency" usa uma escala de 1 a 5 para indicar com 5 o cliente que compra com mais frenquï¿½ncia
+Por fim o valor de Monetary, classifica tambï¿½m com uma escala de 1 a 5, indicando com 5 os clientes que gastam mais valor.
 
-As divisões dos cestos é feita com o valor por defeito de 5, que divide em os valores a cada 20% dos dados.
+As divisï¿½es dos cestos ï¿½ feita com o valor por defeito de 5, que divide em os valores a cada 20% dos dados.
 
-Caso fosse necessário o calculo dos atributos do algoritmo RFM, poderia-mos usar as seguintes formulas. As mesmas não foram usadas pois usamos o package RFM que nos dá este calculo automáticamente.
+Caso fosse necessï¿½rio o calculo dos atributos do algoritmo RFM, poderia-mos usar as seguintes formulas. As mesmas nï¿½o foram usadas pois usamos o package RFM que nos dï¿½ este calculo automï¿½ticamente.
 
-Cálculo "Manual" das três dimensões do RFM
+Cï¿½lculo "Manual" das trï¿½s dimensï¿½es do RFM
 ```{r}
 # Frequency
 rfm_requency <- Result[, .N, by = CardID]
@@ -93,7 +93,7 @@ rfm_recency <- Result[, .(LatestOrder = max(Date)), by = CardID][, .(Recency = a
 
 
 
-#1. Exploração e preparação dos dados
+#1. Exploraï¿½ï¿½o e preparaï¿½ï¿½o dos dados
 
 
 ##Tabela BRAND.DAT
@@ -101,7 +101,7 @@ rfm_recency <- Result[, .(LatestOrder = max(Date)), by = CardID][, .(Recency = a
 brand <- read.table("DATA-CRM/BRAND.dat",header = TRUE,sep = ",",dec = ",")
 ```
 
-Verificação dos dados da tabela brand, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+Verificaï¿½ï¿½o dos dados da tabela brand, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r }
 summary(brand)
 dim(brand)
@@ -124,7 +124,7 @@ Carregamento da tabela CAMPAIGN.dat
 campaign <- read.table("DATA-CRM/CAMPAIGN.dat",header = TRUE,sep = ",",dec = ",")
 ```
 
-### Verificação dos dados da tabela campaign, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificaï¿½ï¿½o dos dados da tabela campaign, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(campaign)
 dim(campaign)
@@ -146,7 +146,7 @@ card <- read.table("DATA-CRM/CARD.dat",header = TRUE,sep = ",",dec = ",")
 setDT(card)
 ```
 
-### Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificaï¿½ï¿½o dos dados da tabela card, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(card)
 dim(card)
@@ -154,7 +154,7 @@ str(card)
 nrow(card[!complete.cases(card),])
 ```
 
-### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritialStatus a dados nulos que devem ser tratados também.
+### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritialStatus a dados nulos que devem ser tratados tambï¿½m.
 
 ```{r}
 card$NumChildren[card$NumChildren<0]<-0
@@ -163,7 +163,7 @@ card$YoungestChild[card$YoungestChild<0]<-0
 table(card$YoungestChild)
 
 
-# Como existem 13 observações que indicam ter filhos, mas depois o campo do número de filhos está a 0, decidimos alterar para o atributo "HasChildren" para "N"
+# Como existem 13 observaï¿½ï¿½es que indicam ter filhos, mas depois o campo do nï¿½mero de filhos estï¿½ a 0, decidimos alterar para o atributo "HasChildren" para "N"
 card[card$NumChildren == 0 & card$HasChildren == 'Y', .N]
 card$HasChildren[card$NumChildren==0]<-'N'
 
@@ -194,7 +194,7 @@ table(duplicated(card))
 category <- read.table("DATA-CRM/CATEGORY.dat",header = TRUE,sep = ",",dec = ",")
 ```
 
-### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificaï¿½ï¿½o dos dados da tabela category, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(category)
 dim(category)
@@ -212,7 +212,7 @@ table(is.na(category))
 subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat",header = TRUE,sep = ",",dec = ",")
 ```
 
-### Verificação dos dados da tabela subcategory, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificaï¿½ï¿½o dos dados da tabela subcategory, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(subcategory)
 dim(subcategory)
@@ -229,7 +229,7 @@ table(is.na(subcategory))
 item <- read.table("DATA-CRM/ITEM.dat",header = TRUE,sep = ";")
 ```
 
-### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificaï¿½ï¿½o dos dados da tabela item, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(item)
 dim(item)
@@ -243,8 +243,15 @@ table(is.na(item))
 
 
 
-#2. Pré-processamento dos dados
+<<<<<<< HEAD
+#2. Prï¿½-processamento dos dados
+=======
+#Merge Card with campaign
+>>>>>>> 52996e414f2a3a324c1b1f52498922973ce4a441
 
+```{r}
+client_card<-merge(card,campaign, by.x = card$CardID, by)
+```
 
 ## Merge das tabelas
 
@@ -271,14 +278,14 @@ df_card[, clientYears := round(new_interval(CardStartDate, analysis_date)/yr,dig
 summary(df_card)
 ```
 
-```{r retirar id e código postal}
+```{r retirar id e cï¿½digo postal}
 
 df_card <- df_card[,c(2,3,6,8:15)]
 
 ```
 
 
-## Visualização dos dados
+## Visualizaï¿½ï¿½o dos dados
 
 ```{r}
 pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card$Responded)])
@@ -287,7 +294,7 @@ pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card
 
 
 
-#3. Criação de modelos de Data-Mining
+#3. Criaï¿½ï¿½o de modelos de Data-Mining
 
 
 
@@ -304,7 +311,7 @@ pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card
 
 
 
-#4. Avaliação dos modelos
+#4. Avaliaï¿½ï¿½o dos modelos
 
 
 
