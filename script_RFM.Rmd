@@ -281,6 +281,7 @@ df_card <- df_card[,c(2,3,6,8:15)]
 ## Visualização dos dados
 
 ```{r}
+pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card$Responded)])
 
 ```
 
@@ -294,37 +295,7 @@ df_card <- df_card[,c(2,3,6,8:15)]
 ```{r}
 
 
-resutls.df <- data.frame(model = character(),
-                         accuracy = double(),
-                         recall = double(),
-                         precision = double(),
-                         f1 = double(),
-                         kappa = double(),
-                         fpr = double(),
-                         stringsAsFactors = FALSE)
 
-
-allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
-  
-  ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
-  
-  accuracy <- sum(diag(ctmatrix$t))/sum(ctmatrix$t)
-  
-  recall <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][1,]) #TPR Recall
-  
-  precision <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][,1])
-  
-  fpr <- ctmatrix[[1]][2,1]/sum(ctmatrix[[1]][2,])
-  
-  f1 <- 2*precision*recall/(precision+recall)
-  
-  pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
-  
-  kappa <- (accuracy - pre) / (1-pre)
-  
-  data.frame(model=modelname,accuracy=round(accuracy,digits = 3),recall=round(recall,digits = 3),precision=round(precision,digits = 3),f1=round(f1,digits = 3), kappa=round(kappa,digits = 3),fpr=round(fpr,digits = 3))
-  
-}
 ```
 
 
