@@ -1,9 +1,10 @@
 ---
 title: "DESCO - Knowledge Discovery"
 author: "1141074 - Sï¿½rgio Silva | 1040706 - Sï¿½rgio Castro | 1970400 - Pedro Neves"
-
 date: "5/3/2018"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -54,7 +55,6 @@ analysis_date <- as.Date("2015-01-01")
 orders <- Result[, .(CardID, Date, Amount)]
 rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis_date,recency_bins = 5,frequency_bins = 5,monetary_bins = 5)
 
-View(rfm_result$rfm)
 summary(rfm_result)
 str(rfm_result)
 
@@ -249,7 +249,7 @@ table(is.na(item))
 
 ```{r juntar dados dos clientes}
 df_card <- merge(card,rfm_result$rfm[,c(1,9)],by.x = 'CardID', by.y = 'customer_id')
-attach(df_card)
+
 df_card <- merge(df_card,campaign, by = 'CardID')
 
 df_card[, CardStartDate := as.Date(as.character.Date(CardStartDate),"%Y%m%d")]
@@ -274,17 +274,20 @@ summary(df_card)
 
 df_card <- df_card[,c(2,3,6,8:15)]
 
-df_card$MaritalStatus[df_card$MaritalStatus==""]<-"N"
+# Mudar o atributo objetivo para o fim da tabela
+df_card <- df_card[,c(1:8,10,11,9)]
+
+str(df_card)
+
+df_card[MaritalStatus == "", MaritalStatus := "O"]
 df_card$MaritalStatus <- droplevels(df_card$MaritalStatus)
 levels(df_card$MaritalStatus)
 
-
-df_card$Gender <- factor(df_card$Gender, levels = c("M","F"),labels = c("Masculino","Feminino"))
+df_card$Gender <- factor(df_card$Gender, levels = c("F","M"),labels = c("Feminino","Masculino"))
 df_card$MaritalStatus <- factor(df_card$MaritalStatus, levels = c("M","S","O"),labels = c("Casado","Solteiro","Outro"))
-df_card$HasChildren <- factor(df_card$HasChildren, levels = c("TRUE","FALSE"),labels = c("Sim","Não"))
+df_card$HasChildren <- factor(df_card$HasChildren, levels = c("N","Y"),labels = c("Não","Sim"))
 df_card$Responded <- factor(df_card$Responded, levels = c("TRUE","FALSE"),labels = c("Sim","Não"))
-
-
+attach(df_card)
 
 ```
 
@@ -293,6 +296,14 @@ df_card$Responded <- factor(df_card$Responded, levels = c("TRUE","FALSE"),labels
 
 ```{r}
 pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card$Responded)])
+
+
+
+# Verificar a percentagem de clientes que disseram que sim ou que não à campanha
+barplot(table(df_card$Responded),ylim = c(0,10000), main = "Responded")
+
+prop.table(table(df_card$Responded))*100
+
 
 ```
 
@@ -303,12 +314,79 @@ pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card
 
 ```{r}
 
-# Mudar o atributo objetivo para o fim
-df_card <- df_card[,c(1:8,10,11,9)]
-
-cor(data[c(6,7,8,9,10)])
+library(gmodels)
 
 
+allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
+  ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
+  accuracy <- sum(diag(ctmatrix$t))/sum(ctmatrix$t)
+  recall <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][1,]) #TPR Recall
+  precision <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][,1])
+  fpr <- ctmatrix[[1]][2,1]/sum(ctmatrix[[1]][2,])
+  f1 <- 2*precision*recall/(precision+recall)
+  pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
+  kappa <- (accuracy - pre) / (1-pre)
+  data.frame(model=modelname,accuracy=round(accuracy,digits = 3),recall=round(recall,digits = 3),precision=round(precision,digits = 3),f1=round(f1,digits = 3), kappa=round(kappa,digits = 3),fpr=round(fpr,digits = 3))
+}
+
+
+# Decalara um data frame para guardar os dados estatisticos
+
+resutls.df <- data.frame(model = character(),
+                         accuracy = double(),
+                         recall = double(),
+                         precision = double(),
+                         f1 = double(),
+                         kappa = double(),
+                         fpr = double(),
+                         stringsAsFactors = FALSE)
+
+
+# Holdout stratified
+   
+library(caret)
+
+set.seed(1576)
+
+#create of stratified train/test partitions
+train.idx <- createDataPartition(df_card$Responded, p=0.7,list = F)
+
+trainSet <-df_card[train.idx,]
+tstSet <- df_card[-train.idx,]
+
+train_labels <- trainSet$Responded
+tst_labels <- tstSet$Responded
+
+round(prop.table(table(train_labels))*100,digits = 2)
+round(prop.table(table(tst_labels))*100,digits = 2)
+
+ncols <- dim(trainSet)[2]
+crtl <- trainControl(method = "cv", number = 10)
+
+##################################################################################
+
+# C5.0 com func??????o treino
+
+modelLookup(model = "C5.0") # ver o que o model pede
+
+
+#grade de parametros para otimizar o algoritmo
+
+grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "tree")
+grid
+set.seed(123)
+
+C5model <- train(Responded~.,data = trainSet,
+                 method = 'C5.0',
+                 metric = 'Accuracy',
+                 trControl = crtl,
+                 tuneGrid = grid)
+
+C5model
+
+C5pred <- predict(C5model,tstSet)
+
+resutls.df <- rbind(resutls.df,allcrosstabmeasures(tst_labels,C5pred,"C5.0 with train caret "))
 
 ```
 
