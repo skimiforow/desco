@@ -301,7 +301,7 @@ ItemCode;ItemDescription;CategoryCode;SubCategoryCode;BrandCode;UpmarketFlag
 'I0000000300';'TOYQUEST - LeapFrog';'MGMS';'PARCC';'BTOYQUEST';'F'
 'I0000000301';'BIMBI - Martian Arts';'MGMS';'PFIGH';'BBIMBI';'F'
 'I0000000302';'BONZAI - Street Lighter II';'MGMS';'PFIGH';'BBONZAI';'F'
-'I0000000303';GAMESTAR - Hit-em hi hit-em lo';'MGMS';'PFIGH';'BGAMESTAR';'F'
+'I0000000303';'GAMESTAR - Hit-em hi hit-em lo';'MGMS';'PFIGH';'BGAMESTAR';'F'
 'I0000000304';'MASTER - Fists of Steel';'MGMS';'PFIGH';'BMASTER';'F'
 'I0000000305';'TOYQUEST - Mr. Myagi The Avenger';'MGMS';'PFIGH';'BTOYQUEST';'F'
 'I0000000306';'BIMBI - Up And Away';'MGMS';'PFSIM';'BBIMBI';'F'
