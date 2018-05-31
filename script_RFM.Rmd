@@ -242,7 +242,11 @@ table(is.na(item))
 
 
 
+#Merge Card with campaign
 
+```{r}
+client_card<-merge(card,campaign, by.x = card$CardID, by)
+```
 
 
 
