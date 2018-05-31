@@ -243,11 +243,9 @@ table(is.na(item))
 
 
 
-<<<<<<< HEAD
-#2. Prï¿½-processamento dos dados
-=======
+#2. Pré-processamento dos dados
+
 #Merge Card with campaign
->>>>>>> 52996e414f2a3a324c1b1f52498922973ce4a441
 
 ```{r}
 client_card<-merge(card,campaign, by.x = card$CardID, by)
