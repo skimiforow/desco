@@ -245,12 +245,6 @@ table(is.na(item))
 
 #2. Pré-processamento dos dados
 
-#Merge Card with campaign
-
-```{r}
-client_card<-merge(card,campaign, by.x = card$CardID, by)
-```
-
 ## Merge das tabelas
 
 ```{r juntar dados dos clientes}
@@ -292,12 +286,16 @@ pairs(df_card[1:11],main = "Client data", pch = 21, bg = c(1:27)[unclass(df_card
 
 
 
-#3. Criaï¿½ï¿½o de modelos de Data-Mining
+#3. Criação de modelos de Data-Mining
 
 
 
 
 ```{r}
+
+# Mudar o atributo objetivo para o fim
+df_card <- df_card[,c(1:8,10,11,9)]
+
 
 
 
