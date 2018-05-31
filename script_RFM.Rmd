@@ -123,14 +123,15 @@ Carregamento da tabela CAMPAIGN.dat
 ```{r CAMPAIGN.dat}
 campaign <- read.table("DATA-CRM/CAMPAIGN.dat",header = TRUE,sep = ",",dec = ",")
 ```
-Verifica??????o dos dados da tabela campaign, tal como o n???mero de colunas e linhas, bem como se os dados foram corretamente carregados.
 
+### Verificação dos dados da tabela campaign, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(campaign)
 dim(campaign)
 str(campaign)
 ```
-Verificar se a tabela possui dados nulos
+
+###Verificar se a tabela possui dados nulos
 ```{r}
 table(is.na(campaign))
 unique(campaign)
@@ -139,13 +140,13 @@ table(duplicated(campaign))
 ```
 
 
-##Tabela CARD.dat
+## Tabela CARD.dat
 ```{r CARD.dat}
 card <- read.table("DATA-CRM/CARD.dat",header = TRUE,sep = ",",dec = ",")
 setDT(card)
 ```
-Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 
+### Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(card)
 dim(card)
@@ -153,7 +154,7 @@ str(card)
 nrow(card[!complete.cases(card),])
 ```
 
-É preciso tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem n???meros negativos. No MaritialStatus a dados nulos que devem ser tratados também.
+### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritialStatus a dados nulos que devem ser tratados também.
 
 ```{r}
 card$NumChildren[card$NumChildren<0]<-0
@@ -164,23 +165,85 @@ table(card$YoungestChild)
 
 # Como existem 13 observações que indicam ter filhos, mas depois o campo do número de filhos está a 0, decidimos alterar para o atributo "HasChildren" para "N"
 card[card$NumChildren == 0 & card$HasChildren == 'Y', .N]
+card$HasChildren[card$YoungestChild==0]<-'N'
 
+plot(card$NumChildren~card$HasChildren)
 
 
 # NumChildren>0 e HasChildren
 card[card$NumChildren >0 & card$HasChildren == 'N' & card$YoungestChild == 0, .N]
 
 
+# Verificamos que o MaritialStatus possui dados a NULL
+card[card$MaritalStatus == "" & card$MaritalStatus == 'N', .N]
 
 ```
 
-Verificar se a tabela possui dados nulos
+### Verificar se a tabela Card possui dados nulos
 ```{r}
 table(is.na(card))
 unique(card)
 table(duplicated(card))
 
 ```
+
+
+## Tabela CATEGORY.dat
+```{r}
+category <- read.table("DATA-CRM/CATEGORY.dat",header = TRUE,sep = ",",dec = ",")
+```
+
+### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r}
+summary(category)
+dim(category)
+str(category)
+```
+
+### Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(category))
+```
+
+
+## Tabela SUBCATEGORY.dat
+```{r}
+subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat",header = TRUE,sep = ",",dec = ",")
+```
+
+### Verificação dos dados da tabela subcategory, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r}
+summary(subcategory)
+dim(subcategory)
+str(subcategory)
+```
+### Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(subcategory))
+```
+
+
+## Tabela ITEM.dat
+```{r}
+item <- read.table("DATA-CRM/ITEM.dat",header = TRUE,sep = ";")
+```
+
+### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r}
+summary(item)
+dim(item)
+str(item)
+```
+
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(item))
+```
+
+
+
+
+
 
 
 
