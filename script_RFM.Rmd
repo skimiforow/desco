@@ -17,14 +17,31 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 ```
 
+#Importes necessários
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(C50)
+library(data.table)
+library(rfm)
+library(lubridate)
+library(gmodels)
+library(e1071) #Nayve Bayes
+```
+
+
+
+
+
+
 #Carregamento das tabelas de transaction
 
 The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].
 
 Loading of the tables to create model RFM
 ```{r Carregamento}
-library(data.table)
-
 keycols <- c('Store', 'Date', 'Time', 'TransactionID')
 
 transactions = fread('DATA-CRM/TRANSACTION.dat')
@@ -49,7 +66,6 @@ Result <- na.omit(Result, cols = "Date")
 
 Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
 ```{r RFM algorithm}
-library(rfm)
 analysis_date <- as.Date("2015-01-01")
 
 orders <- Result[, .(CardID, Date, Amount)]
@@ -261,7 +277,6 @@ df_card[, DateOfBirth := as.Date(as.character.Date(DateOfBirth),"%Y%m%d")]
 
 ```{r criar as colunas com idade e anos de cliente}
 # Criar a idade do cliente
-library(lubridate)
 yr = duration(num = 1, units = "years")
 df_card[, age := round(interval(DateOfBirth, analysis_date)/yr,digits = 0)][]
 
@@ -310,9 +325,9 @@ prop.table(table(df_card$Responded))*100
 
 ```{r}
 
-library(gmodels)
 
 allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
+  if (length(unique(tst_labels)) == length(unique(pred_labels))) {
   ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
   accuracy <- sum(diag(ctmatrix$t))/sum(ctmatrix$t)
   recall <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][1,]) #TPR Recall
@@ -322,6 +337,7 @@ allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
   pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
   kappa <- (accuracy - pre) / (1-pre)
   data.frame(model=modelname,accuracy=round(accuracy,digits = 3),recall=round(recall,digits = 3),precision=round(precision,digits = 3),f1=round(f1,digits = 3), kappa=round(kappa,digits = 3),fpr=round(fpr,digits = 3))
+  }
 }
 
 
@@ -339,7 +355,6 @@ results.df <- data.frame(model = character(),
 
 # Holdout stratified
    
-library(caret)
 
 set.seed(1576)
 
@@ -358,6 +373,10 @@ round(prop.table(table(tst_labels))*100, digits = 2)
 ncols <- dim(trainSet)[2]
 ctrl <- trainControl(method = "cv", number = 10)
 
+```
+
+
+```{r C5.0 com funcão treino}
 ##################################################################################
 
 # C5.0 com funcão treino
@@ -385,13 +404,49 @@ plot(C5model)
 C5pred <- predict(C5model, tstSet)
 
 results.df <- rbind(results.df, allcrosstabmeasures(tst_labels, C5pred, "C5.0 with train caret "))
-
 ```
 
 
 
+```{r C5.0 with adaptative boosting}
+##################################################################################
+
+# C5.0 with adaptative boosting
+
+set.seed(123)
+
+boost100.model <- C5.0(trainSet[-ncols],trainSet$Responded, trials = 100)
+
+summary(boost100.model)
+
+boost100.pred <- predict(boost100.model,tstSet)
+
+resutls.df <- rbind(results.df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.0 with adaptative boosting "))
 
 
+##################################################################################
+```
+
+
+```{r Naive Bayes}
+##################################################################################
+
+# Naive Bayes
+
+set.seed(123)
+
+Bayesmodel <- train(trainSet[,-ncols], trainSet$Churned,
+                    method = "nb",
+                    tuneGrid = data.frame(fL=1,usekernel=FALSE,adjust=1),
+                    trControl = crtl)
+
+Bayespred <- predict(Bayesmodel,testSet)
+
+resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,Bayespred,"Naive Bayes"))
+
+
+##################################################################################
+```
 
 
 #4. Avaliação dos modelos
