@@ -1,7 +1,6 @@
 ---
 title: "DESCO - Knowledge Discovery"
-author: "1141074 - Sï¿½rgio Silva | 1970400 - Pedro Neves | 1040706 - Sï¿½rgio Castro"
-
+author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
 date: "5/3/2018"
 output: html_document
 editor_options: 
@@ -36,7 +35,7 @@ setkeyv(trans_items, keycols)
 
 ```
 
-##Fazer 'join' das duas tabelas e remover observaï¿½ï¿½es contendo datas invï¿½lidas
+##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
 
 
 ```{r Merge}
@@ -48,13 +47,13 @@ Result <- na.omit(Result, cols = "Date")
 
 ## Gerar RFM Score com package rfm
 
-Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transaï¿½ï¿½es
+Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
 ```{r RFM algorithm}
 library(rfm)
 analysis_date <- as.Date("2015-01-01")
 
 orders <- Result[, .(CardID, Date, Amount)]
-rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis_date,recency_bins = 5,frequency_bins = 5,monetary_bins = 5)
+rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis_date, recency_bins = 5, frequency_bins = 5, monetary_bins = 5)
 
 summary(rfm_result)
 str(rfm_result)
@@ -63,24 +62,24 @@ rfm_bar_chart(rfm_result)
 
 rfm_histograms(rfm_result)
 
-# Correlacionar a Frequï¿½ncia com o valor gasto
+# Correlacionar a Frequência com o valor gasto
 rfm_fm_plot(rfm_result)
 
-# Correlacionar a data da ï¿½ltima compra com a frequï¿½ncia de compra
+# Correlacionar a data da última compra com a frequência de compra
 rfm_rf_plot(rfm_result)
 
 rfm_heatmap(rfm_result)
 ```
 
-O valor de "Recency" ï¿½ classificado numa escala de 1 a 5 em que o valor 5 ï¿½ atribuido aos clientes que compraram mais recentemente.
-O valor de "Frequency" usa uma escala de 1 a 5 para indicar com 5 o cliente que compra com mais frenquï¿½ncia
-Por fim o valor de Monetary, classifica tambï¿½m com uma escala de 1 a 5, indicando com 5 os clientes que gastam mais valor.
+O valor de "Recency" é classificado numa escala de 1 a 5 em que o valor 5 é atribuido aos clientes que compraram mais recentemente.
+O valor de "Frequency" usa uma escala de 1 a 5 para indicar com 5 o cliente que compra com mais frequência
+Por fim, o valor de Monetary classifica, também com uma escala de 1 a 5, indicando com 5 os clientes que gastam mais valor.
 
-As divisï¿½es dos cestos ï¿½ feita com o valor por defeito de 5, que divide em os valores a cada 20% dos dados.
+As divisões dos cestos é feita com o valor por defeito de 5, que divide em os valores a cada 20% dos dados.
 
-Caso fosse necessï¿½rio o calculo dos atributos do algoritmo RFM, poderia-mos usar as seguintes formulas. As mesmas nï¿½o foram usadas pois usamos o package RFM que nos dï¿½ este calculo automï¿½ticamente.
+Caso fosse necessério o calculo dos atributos do algoritmo RFM, poderíamos usar as seguintes formulas. As mesmas não foram usadas pois usamos o package RFM que nos dá este calculo automaticamente.
 
-Cï¿½lculo "Manual" das trï¿½s dimensï¿½es do RFM
+Cálculo "Manual" das três dimensões do RFM
 ```{r}
 # Frequency
 rfm_requency <- Result[, .N, by = CardID]
@@ -93,16 +92,15 @@ rfm_recency <- Result[, .(LatestOrder = max(Date)), by = CardID][, .(Recency = a
 ```
 
 
-
-#1. Exploraï¿½ï¿½o e preparaï¿½ï¿½o dos dados
+#1. Exploração e preparação dos dados
 
 
 ##Tabela BRAND.DAT
 ```{r BRAND.dat}
-brand <- read.table("DATA-CRM/BRAND.dat",header = TRUE,sep = ",",dec = ",")
+brand <- read.table("DATA-CRM/BRAND.dat", header = TRUE, sep = ",", dec = ",")
 ```
 
-Verificaï¿½ï¿½o dos dados da tabela brand, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+Verificação dos dados da tabela brand, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r }
 summary(brand)
 dim(brand)
@@ -122,10 +120,10 @@ table(duplicated(brand))
 ##Tabela CAMPAIGN.DAT
 Carregamento da tabela CAMPAIGN.dat
 ```{r CAMPAIGN.dat}
-campaign <- read.table("DATA-CRM/CAMPAIGN.dat",header = TRUE,sep = ",",dec = ",")
+campaign <- read.table("DATA-CRM/CAMPAIGN.dat", header = TRUE, sep = ",", dec = ",")
 ```
 
-### Verificaï¿½ï¿½o dos dados da tabela campaign, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificação dos dados da tabela campaign, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(campaign)
 dim(campaign)
@@ -143,11 +141,11 @@ table(duplicated(campaign))
 
 ## Tabela CARD.dat
 ```{r CARD.dat}
-card <- read.table("DATA-CRM/CARD.dat",header = TRUE,sep = ",",dec = ",")
+card <- read.table("DATA-CRM/CARD.dat", header = TRUE, sep = ",", dec = ",")
 setDT(card)
 ```
 
-### Verificaï¿½ï¿½o dos dados da tabela card, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(card)
 dim(card)
@@ -155,31 +153,34 @@ str(card)
 nrow(card[!complete.cases(card),])
 ```
 
-### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritialStatus a dados nulos que devem ser tratados tambï¿½m.
+### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritalStatus há dados nulos que devem ser tratados também.
 
 ```{r}
-card$NumChildren[card$NumChildren<0]<-0
+card$NumChildren[card$NumChildren < 0] <- 0
 table(card$NumChildren)
-card$YoungestChild[card$YoungestChild<0]<-0
+card$YoungestChild[card$YoungestChild < 0] <- 0
 table(card$YoungestChild)
 
 
-# Como existem 13 observaï¿½ï¿½es que indicam ter filhos, mas depois o campo do nï¿½mero de filhos estï¿½ a 0, decidimos alterar para o atributo "HasChildren" para "N"
+# Como existem observações que indicam ter filhos, mas depois o campo do número de filhos está a 0, decidimos alterar o atributo "HasChildren" para "N"
 card[card$NumChildren == 0 & card$HasChildren == 'Y', .N]
-card$HasChildren[card$NumChildren==0]<-'N'
+card$HasChildren[card$NumChildren == 0] <- 'N'
 
 
 # NumChildren>0 e HasChildren
-card[card$NumChildren >0 & card$HasChildren == 'N' & card$YoungestChild == 0, .N]
-card$HasChildren[card$NumChildren>0]<-'Y'
+card[card$NumChildren > 0 & card$HasChildren == 'N', .N]
+card$HasChildren[card$NumChildren > 0] <- 'Y'
 
 plot(card$NumChildren~card$HasChildren)
 
+#TODO: o que colocar em YoungestChild quando HasChildren == 'N' (e NumChildren == 0)? 
 
-# Verificamos que o MaritialStatus possui dados a NULL
-card[card$MaritalStatus == "", .N]
-card[MaritalStatus == "", MaritalStatus := "other"]
-table(is.na(card$MaritalStatus))
+
+# Verificamos que o MaritalStatus possui dados vazios
+table(card$MaritalStatus)
+
+card[MaritalStatus == "", MaritalStatus := "O"]
+card$MaritalStatus <- droplevels(card$MaritalStatus)
 ```
 
 ### Verificar se a tabela Card possui dados nulos
@@ -190,13 +191,12 @@ table(duplicated(card))
 
 ```
 
-
 ## Tabela CATEGORY.dat
 ```{r}
-category <- read.table("DATA-CRM/CATEGORY.dat",header = TRUE,sep = ",",dec = ",")
+category <- read.table("DATA-CRM/CATEGORY.dat", header = TRUE, sep = ",", dec = ",")
 ```
 
-### Verificaï¿½ï¿½o dos dados da tabela category, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(category)
 dim(category)
@@ -211,10 +211,10 @@ table(is.na(category))
 
 ## Tabela SUBCATEGORY.dat
 ```{r}
-subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat",header = TRUE,sep = ",",dec = ",")
+subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat", header = TRUE, sep = ",", dec = ",")
 ```
 
-### Verificaï¿½ï¿½o dos dados da tabela subcategory, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificação dos dados da tabela subcategory, tal como o némero de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(subcategory)
 dim(subcategory)
@@ -228,10 +228,10 @@ table(is.na(subcategory))
 
 ## Tabela ITEM.dat
 ```{r}
-item <- read.table("DATA-CRM/ITEM.dat",header = TRUE,sep = ";")
+item <- read.table("DATA-CRM/ITEM.dat", header = TRUE, sep = ";")
 ```
 
-### Verificaï¿½ï¿½o dos dados da tabela item, tal como o nï¿½mero de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
 summary(item)
 dim(item)
@@ -244,15 +244,14 @@ table(is.na(item))
 ```
 
 
-
-#2. Prï¿½-processamento dos dados
+#2. Pré-processamento dos dados
 
 ## Merge das tabelas
 
 ```{r juntar dados dos clientes}
-df_card <- merge(card,rfm_result$rfm[,c(1,9)],by.x = 'CardID', by.y = 'customer_id')
+df_card <- merge(card, rfm_result$rfm[,c(1,9)], by.x = 'CardID', by.y = 'customer_id')
 
-df_card <- merge(df_card,campaign, by = 'CardID')
+df_card <- merge(df_card, campaign, by = 'CardID')
 
 df_card[, CardStartDate := as.Date(as.character.Date(CardStartDate),"%Y%m%d")]
 
@@ -260,7 +259,7 @@ df_card[, DateOfBirth := as.Date(as.character.Date(DateOfBirth),"%Y%m%d")]
 
 ```
 
-```{r criar a colunas com idade e anos de cliente}
+```{r criar as colunas com idade e anos de cliente}
 # Criar a idade do cliente
 library(lubridate)
 yr = duration(num = 1, units = "years")
@@ -272,36 +271,32 @@ df_card[, clientYears := round(interval(CardStartDate, analysis_date)/yr,digits 
 summary(df_card)
 ```
 
-```{r retirar id e cï¿½digo postal}
+```{r retirar id e código postal, CardStartDate e DateOfBirth}
 
-df_card <- df_card[,c(2,3,6,8:15)]
+df_card <- df_card[, c(2,3,6,8:15)]
 
 # Mudar o atributo objetivo para o fim da tabela
-df_card <- df_card[,c(1:8,10,11,9)]
+df_card <- df_card[, c(1:8,10,11,9)]
 
 str(df_card)
 
-df_card[MaritalStatus == "", MaritalStatus := "O"]
-df_card$MaritalStatus <- droplevels(df_card$MaritalStatus)
-levels(df_card$MaritalStatus)
 
-df_card$Gender <- factor(df_card$Gender, levels = c("F","M"),labels = c("Feminino","Masculino"))
-df_card$MaritalStatus <- factor(df_card$MaritalStatus, levels = c("M","S","O"),labels = c("Casado","Solteiro","Outro"))
-df_card$HasChildren <- factor(df_card$HasChildren, levels = c("N","Y"),labels = c("Nï¿½o","Sim"))
-df_card$Responded <- factor(df_card$Responded, levels = c("TRUE","FALSE"),labels = c("Sim","Nï¿½o"))
-attach(df_card)
+df_card$Gender <- factor(df_card$Gender, levels = c("F", "M"), labels = c("Feminino", "Masculino"))
+df_card$MaritalStatus <- factor(df_card$MaritalStatus, levels = c("M", "S", "O"), labels = c("Casado", "Solteiro", "Outro"))
+df_card$HasChildren <- factor(df_card$HasChildren, levels = c("Y", "N"), labels = c("Sim","Não"))
+df_card$Responded <- factor(df_card$Responded, levels = c(TRUE, FALSE), labels = c("Sim","Não"))
 
 ```
 
 
-## Visualizaï¿½ï¿½o dos dados
+## Visualização dos dados
 
 ```{r}
 
 
 
-# Verificar a percentagem de clientes que disseram que sim ou que nï¿½o ï¿½ campanha
-barplot(table(df_card$Responded),ylim = c(0,10000), main = "Responded")
+# Verificar a percentagem de clientes que responderam à campanha
+barplot(table(df_card$Responded), ylim = c(0,10000), main = "Responded")
 
 prop.table(table(df_card$Responded))*100
 
@@ -310,13 +305,12 @@ prop.table(table(df_card$Responded))*100
 
 
 
-#3. Criaï¿½ï¿½o de modelos de Data-Mining
+#3. Criação de modelos de Data-Mining
 
 
 ```{r}
 
 library(gmodels)
-
 
 allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
   ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
@@ -331,9 +325,9 @@ allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
 }
 
 
-# Decalara um data frame para guardar os dados estatisticos
+# Declara um data frame para guardar os dados estatisticos
 
-resutls.df <- data.frame(model = character(),
+results.df <- data.frame(model = character(),
                          accuracy = double(),
                          recall = double(),
                          precision = double(),
@@ -350,26 +344,25 @@ library(caret)
 set.seed(1576)
 
 #create of stratified train/test partitions
-train.idx <- createDataPartition(df_card$Responded, p=0.7,list = F)
+train.idx <- createDataPartition(df_card$Responded, p = 0.7, list = F)
 
-trainSet <-df_card[train.idx,]
-tstSet <- df_card[-train.idx,]
+trainSet <- df_card[train.idx, ]
+tstSet <- df_card[-train.idx, ]
 
 train_labels <- trainSet$Responded
 tst_labels <- tstSet$Responded
 
-round(prop.table(table(train_labels))*100,digits = 2)
-round(prop.table(table(tst_labels))*100,digits = 2)
+round(prop.table(table(train_labels))*100, digits = 2)
+round(prop.table(table(tst_labels))*100, digits = 2)
 
 ncols <- dim(trainSet)[2]
-crtl <- trainControl(method = "cv", number = 10)
+ctrl <- trainControl(method = "cv", number = 10)
 
 ##################################################################################
 
-# C5.0 com func??????o treino
+# C5.0 com funcão treino
 
 modelLookup(model = "C5.0") # ver o que o model pede
-
 
 #grade de parametros para otimizar o algoritmo
 
@@ -377,17 +370,17 @@ grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "t
 grid
 set.seed(123)
 
-C5model <- train(Responded~.,data = trainSet,
+C5model <- train(Responded ~ ., data = trainSet
                  method = 'C5.0',
                  metric = 'Accuracy',
-                 trControl = crtl,
+                 trControl = ctrl,
                  tuneGrid = grid)
 
 C5model
 
-C5pred <- predict(C5model,tstSet)
+C5pred <- predict(C5model, tstSet)
 
-resutls.df <- rbind(resutls.df,allcrosstabmeasures(tst_labels,C5pred,"C5.0 with train caret "))
+results.df <- rbind(results.df, allcrosstabmeasures(tst_labels, C5pred, "C5.0 with train caret "))
 
 ```
 
@@ -397,4 +390,4 @@ resutls.df <- rbind(resutls.df,allcrosstabmeasures(tst_labels,C5pred,"C5.0 with 
 
 
 
-#4. Avaliaï¿½ï¿½o dos modelos
+#4. Avaliação dos modelos
