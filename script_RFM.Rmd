@@ -352,7 +352,9 @@ results.df <- data.frame(model = character(),
                          fpr = double(),
                          stringsAsFactors = FALSE)
 
+```
 
+```{r Holdout stratified}
 # Holdout stratified
    
 
@@ -372,7 +374,6 @@ round(prop.table(table(tst_labels))*100, digits = 2)
 
 ncols <- dim(trainSet)[2]
 ctrl <- trainControl(method = "cv", number = 10)
-
 ```
 
 
@@ -435,14 +436,14 @@ resutls.df <- rbind(results.df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.
 
 set.seed(123)
 
-Bayesmodel <- train(trainSet[,-ncols], trainSet$Churned,
+Bayesmodel <- train(trainSet$Responded~., trainSet,
                     method = "nb",
                     tuneGrid = data.frame(fL=1,usekernel=FALSE,adjust=1),
-                    trControl = crtl)
+                    trControl = ctrl)
 
-Bayespred <- predict(Bayesmodel,testSet)
+Bayespred <- predict(Bayesmodel,tstSet)
 
-resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,Bayespred,"Naive Bayes"))
+resutls.df <- rbind(resutls.df,allcrosstabmeasures(tst_labels,Bayespred,"Naive Bayes"))
 
 
 ##################################################################################
