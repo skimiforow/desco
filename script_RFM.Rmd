@@ -25,6 +25,7 @@ library(ggplot2)
 library(caret)
 library(C50)
 library(data.table)
+library(randomForest)
 library(rfm)
 library(lubridate)
 library(gmodels)
@@ -98,7 +99,7 @@ Caso fosse necessério o calculo dos atributos do algoritmo RFM, poderíamos usar 
 Cálculo "Manual" das três dimensões do RFM
 ```{r}
 # Frequency
-rfm_requency <- Result[, .N, by = CardID]
+rfm_frequency <- Result[, .N, by = CardID]
 
 # Monetary
 rfm_monetary <- Result[ , .(Total = sum(Amount)), by = CardID]
@@ -189,7 +190,7 @@ card$HasChildren[card$NumChildren > 0] <- 'Y'
 
 plot(card$NumChildren~card$HasChildren)
 
-#TODO: o que colocar em YoungestChild quando HasChildren == 'N' (e NumChildren == 0)? 
+#TODO: o que colocar em YoungestChild quando HasChildren == 'N' e NumChildren == 0? 
 
 
 # Verificamos que o MaritalStatus possui dados vazios
@@ -354,17 +355,34 @@ results.df <- data.frame(model = character(),
 
 ```
 
+## Devido à taxa de Sim no atributo Responded ser inferior a 20%, foi necessário efetuar um Oversamppling dos dados positivos para equilibrar os mesmos.
+
+```{r}
+test <- df_card[ which(df_card$Responded=='Sim'),]
+newData <- df_card
+newData <- rbind(newData,test)
+table(newData$Responded)
+
+summary(newData)
+```
+
+
+
+
 ```{r Holdout stratified}
 # Holdout stratified
    
 
 set.seed(1576)
 
-#create of stratified train/test partitions
-train.idx <- createDataPartition(df_card$Responded, p = 0.7, list = F)
 
-trainSet <- df_card[ train.idx, ]
-tstSet <-   df_card[-train.idx, ]
+
+
+#create of stratified train/test partitions
+train.idx <- createDataPartition(newData$Responded, p = 0.7, list = F)
+
+trainSet <- newData[ train.idx, ]
+tstSet <-   newData[-train.idx, ]
 
 train_labels <- trainSet$Responded
 tst_labels <- tstSet$Responded
@@ -372,8 +390,30 @@ tst_labels <- tstSet$Responded
 round(prop.table(table(train_labels))*100, digits = 2)
 round(prop.table(table(tst_labels))*100, digits = 2)
 
+#TODO: Problema é que apenas de 8,51 % indica o sim.
+table(trainSet$Responded)
+round(prop.table(table(trainSet$Responded))*100, digits = 2)
+
+
 ncols <- dim(trainSet)[2]
 ctrl <- trainControl(method = "cv", number = 10)
+```
+
+
+
+```{r C5.0}
+set.seed(123)
+
+modelLookup(model = "C5.0") # ver o que o model pede
+
+C5Model <- C5.0(Responded~.,data = trainSet)
+
+summary(C5Model)
+
+C5Predict <- predict(C5Model,newdata = tstSet,type = "class")
+
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,C5Predict,"C5.0 Classif."))
+results.df
 ```
 
 
@@ -382,15 +422,14 @@ ctrl <- trainControl(method = "cv", number = 10)
 
 # C5.0 com funcão treino
 
-modelLookup(model = "C5.0") # ver o que o model pede
 
 #grade de parametros para otimizar o algoritmo
 
 grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "tree")
 grid
-set.seed(123)
 
-C5model <- train(Responded ~ ., data = trainSet,
+
+C5model <- train(Responded~., y = trainSet$Responded,
                  method = 'C5.0',
                  metric = 'Accuracy',
                  trControl = ctrl,
@@ -404,7 +443,10 @@ plot(C5model)
 
 C5pred <- predict(C5model, tstSet)
 
+table(C5pred)
+
 results.df <- rbind(results.df, allcrosstabmeasures(tst_labels, C5pred, "C5.0 with train caret "))
+results.df
 ```
 
 
@@ -422,8 +464,8 @@ summary(boost100.model)
 
 boost100.pred <- predict(boost100.model,tstSet)
 
-resutls.df <- rbind(results.df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.0 with adaptative boosting "))
-
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.0 with adaptative boosting "))
+results.df
 
 ##################################################################################
 ```
@@ -436,17 +478,44 @@ resutls.df <- rbind(results.df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.
 
 set.seed(123)
 
-Bayesmodel <- train(trainSet$Responded~., trainSet,
+Bayesmodel <-train(Responded~., y = trainSet$Responded,
                     method = "nb",
                     tuneGrid = data.frame(fL=1,usekernel=FALSE,adjust=1),
                     trControl = ctrl)
 
 Bayespred <- predict(Bayesmodel,tstSet)
 
-resutls.df <- rbind(resutls.df,allcrosstabmeasures(tst_labels,Bayespred,"Naive Bayes"))
-
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,Bayespred,"Naive Bayes"))
+results.df
 
 ##################################################################################
+```
+
+```{r Random Forest}
+
+
+set.seed(123)
+
+control <- trainControl(method = "repeatedcv", number = 10, repeats = 3, search  ="grid")
+
+mtry <- round(sqrt(ncol(trainSet)),0)
+
+rfmodel <- train(Responded~.,
+                 data=trainSet,
+                 method = "rf",
+                 tuneGrid = expand.grid(.mtry=1:15),
+                 trControl=control,
+                 ntree=1000)
+
+
+print(rfmodel)
+plot(rfmodel)
+
+varImp(rfmodel)
+
+rfpredict <- predict(rfmodel,newdata = testSet,type = 'raw')
+resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,rfpredict,"Random Forest"))
+
 ```
 
 
