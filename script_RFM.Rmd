@@ -338,6 +338,8 @@ allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
   pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
   kappa <- (accuracy - pre) / (1-pre)
   data.frame(model=modelname,accuracy=round(accuracy,digits = 3),recall=round(recall,digits = 3),precision=round(precision,digits = 3),f1=round(f1,digits = 3), kappa=round(kappa,digits = 3),fpr=round(fpr,digits = 3))
+  } else {
+    stop("Erro na construção do modelo")
   }
 }
 
@@ -355,20 +357,8 @@ results.df <- data.frame(model = character(),
 
 ```
 
+
 ## Devido à taxa de Sim no atributo Responded ser inferior a 20%, foi necessário efetuar um Oversamppling dos dados positivos para equilibrar os mesmos.
-
-```{r}
-test <- df_card[ which(df_card$Responded=='Sim'),]
-newData <- df_card
-newData <- rbind(newData,test)
-table(newData$Responded)
-
-summary(newData)
-```
-
-
-
-
 ```{r Holdout stratified}
 # Holdout stratified
    
@@ -379,21 +369,26 @@ set.seed(1576)
 
 
 #create of stratified train/test partitions
-train.idx <- createDataPartition(newData$Responded, p = 0.7, list = F)
+train.idx <- createDataPartition(df_card$Responded, p = 0.7, list = F)
 
-trainSet <- newData[ train.idx, ]
-tstSet <-   newData[-train.idx, ]
+trainSet <- df_card[ train.idx, ]
+tstSet <-   df_card[-train.idx, ]
+
+# Criar o oversampling para resolver o problema dos dados desbalanceados.
+oversampling <- trainSet[ which(trainSet$Responded=='Sim'),]
+trainSet <- rbind(trainSet,oversampling)
+trainSet <- rbind(trainSet,oversampling)
+table(trainSet$Responded)
+summary(trainSet)
+
+table(trainSet$Responded)
+round(prop.table(table(trainSet$Responded))*100, digits = 2)
 
 train_labels <- trainSet$Responded
 tst_labels <- tstSet$Responded
 
 round(prop.table(table(train_labels))*100, digits = 2)
 round(prop.table(table(tst_labels))*100, digits = 2)
-
-#TODO: Problema é que apenas de 8,51 % indica o sim.
-table(trainSet$Responded)
-round(prop.table(table(trainSet$Responded))*100, digits = 2)
-
 
 ncols <- dim(trainSet)[2]
 ctrl <- trainControl(method = "cv", number = 10)
@@ -429,12 +424,11 @@ grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "t
 grid
 
 
-C5model <- train(Responded~., y = trainSet$Responded,
+C5model <- train(Responded~.,data = trainSet,
                  method = 'C5.0',
                  metric = 'Accuracy',
                  trControl = ctrl,
                  tuneGrid = grid)
-
 C5model
 
 trellis.par.set(caretTheme())
@@ -458,7 +452,7 @@ results.df
 
 set.seed(123)
 
-boost100.model <- C5.0(trainSet[-ncols],trainSet$Responded, trials = 100)
+boost100.model <- C5.0(x = trainSet[,c(1:10)],trainSet$Responded, trials = 100)
 
 summary(boost100.model)
 
@@ -478,7 +472,7 @@ results.df
 
 set.seed(123)
 
-Bayesmodel <-train(Responded~., y = trainSet$Responded,
+Bayesmodel <-train(trainSet[,c(1:10)], y = trainSet$Responded,
                     method = "nb",
                     tuneGrid = data.frame(fL=1,usekernel=FALSE,adjust=1),
                     trControl = ctrl)
