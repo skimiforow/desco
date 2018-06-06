@@ -1,0 +1,108 @@
+---
+title: "DESCO - Knowledge Discovery - Association Rules"
+author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
+date: "5/3/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Limpeza do ambiente
+
+```{r Clean Environment}
+rm(list = ls())
+```
+
+#Bibliotecas necessárias
+
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+library(C50)
+library(data.table)
+library(randomForest)
+library(rfm)
+library(lubridate)
+library(gmodels)
+library(e1071) #Nayve Bayes
+```
+
+
+##Tabela BRAND.DAT
+```{r BRAND.dat}
+brand <- read.table("DATA-CRM/BRAND.dat", header = TRUE, sep = ",", dec = ",")
+```
+
+Verificação dos dados da tabela brand, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r }
+summary(brand)
+dim(brand)
+str(brand)
+
+```
+
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(brand))
+unique(brand)
+table(duplicated(brand))
+```
+
+
+## Tabela CATEGORY.dat
+```{r}
+category <- read.table("DATA-CRM/CATEGORY.dat", header = TRUE, sep = ",", dec = ",")
+```
+
+### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r}
+summary(category)
+dim(category)
+str(category)
+```
+
+### Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(category))
+```
+
+
+## Tabela SUBCATEGORY.dat
+```{r}
+subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat", header = TRUE, sep = ",", dec = ",")
+```
+
+### Verificação dos dados da tabela subcategory, tal como o némero de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r}
+summary(subcategory)
+dim(subcategory)
+str(subcategory)
+```
+### Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(subcategory))
+```
+
+
+## Tabela ITEM.dat
+```{r}
+item <- read.table("DATA-CRM/ITEM.dat", header = TRUE, sep = ";")
+```
+
+### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+```{r}
+summary(item)
+dim(item)
+str(item)
+```
+
+Verificar se a tabela possui dados nulos
+```{r}
+table(is.na(item))
+```
+

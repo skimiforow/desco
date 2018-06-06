@@ -1,5 +1,5 @@
 ---
-title: "DESCO - Knowledge Discovery"
+title: "DESCO - Knowledge Discovery - Prediction"
 author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
 date: "5/3/2018"
 output: html_document
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 ```
 
-#Importes necessários
+#Bibliotecas necessárias
 
 ```{r}
 library(lattice)
@@ -508,9 +508,116 @@ plot(rfmodel)
 varImp(rfmodel)
 
 rfpredict <- predict(rfmodel,newdata = testSet,type = 'raw')
-resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,rfpredict,"Random Forest"))
-
+results.df <- rbind(results.df,allcrosstabmeasures(test_Labels,rfpredict,"Random Forest"))
+results.df
 ```
 
+
+# Logistic regression
+
+```{r}
+crtl <- trainControl(method = 'cv', number = 3)
+
+set.seed(123)
+
+glmodel <- train(Responded~.,
+                 data= trainSet,
+                 method = 'glm',
+                 trControl = crtl)
+
+summary(glmodel)
+
+glmpred <- predict(glmodel, newdata = tstSet)
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,glmpred,"Logistic regression"))
+results.df
+```
+
+#TODO: está a dar erro
+# K-Nearest neighbours
+```{r}
+knnmodel <- train(Responded~.,
+                  data = trainSet,
+                  method = 'knn',
+                  predProc = c("center","scale"),
+                  tuneGrid = expand.grid(k = seq(1,100,2)),
+                  metric = 'Accuracy',
+                  trControl = crtl)
+
+knnpred <- predict(knnmodel,newdata = tstSet, type = "raw")
+
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,knnpred,"K-Nearest neighbours"))
+results.df
+```
+
+
+#TODO: está a dar erro
+# Support Vector Machine (SVM) LINEAR
+```{r}
+set.seed(123)
+
+svmodel <- train(Responded~.,
+                 data = trainSet,
+                 method = 'svmLinear',
+                 metric = 'Accuracy',
+                 maximize = FALSE,
+                 tuneLength = 15,
+                 trControl = crtl)
+
+svpred <- predict(svmodel,newdata = tstSet)
+
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,svpred,"Support Vector Machine (SVM) - Linear"))
+results.df
+```
+
+
+
+
+
+##################################################################################
+
+# Support Vector Machine (SVM) RADIAL
+
+set.seed(123)
+
+
+grid <- expand.grid(sigma = c(.01,.015, 0.2), C = c(0.75, 0.9, 1,1.1,1.25))
+svmodelradial <- train(Churned~.,
+                 data = trainSet,
+                 method = 'svmRadial',
+                 PreProc = c("center","scale"),
+                 metric = 'Accuracy',
+                 maximize = FALSE,
+                 tuneGrid = grid,
+                 trControl = crtl)
+
+svpredradial <- predict(svmodelradial,newdata = testSet)
+
+resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,svpredradial,"Support Vector Machine (SVM) - Radial"))
+
+##################################################################################
+# neural network
+
+set.seed(123)
+
+nnetGrid <- expand.grid(.decay = c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9), size = (1:9))
+
+nnmodel <- train(Churned~.,
+                 data = trainSet,
+                 method = 'nnet',
+                 metric = 'Accuracy',
+                 tuneGrid = nnetGrid,
+                 trace = FALSE,
+                 maxit = 1000,
+                 preProc = c("center","scale"),
+                 trControl = crtl)
+
+nnpred <- predict(nnmodel,newdata = testSet)
+
+resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,nnpred,"Neural network"))
+
+
+
+
+##################################################################################
 
 #4. Avaliação dos modelos
