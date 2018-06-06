@@ -30,6 +30,8 @@ library(rfm)
 library(lubridate)
 library(gmodels)
 library(e1071) #Nayve Bayes
+library(dplyr) # Para criação dos valores categoricos a partir dos dados números do RFM
+
 ```
 
 
@@ -112,27 +114,6 @@ rfm_recency <- Result[, .(LatestOrder = max(Date)), by = CardID][, .(Recency = a
 #1. Exploração e preparação dos dados
 
 
-##Tabela BRAND.DAT
-```{r BRAND.dat}
-brand <- read.table("DATA-CRM/BRAND.dat", header = TRUE, sep = ",", dec = ",")
-```
-
-Verificação dos dados da tabela brand, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r }
-summary(brand)
-dim(brand)
-str(brand)
-
-```
-
-Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(brand))
-unique(brand)
-table(duplicated(brand))
-```
-
-
 
 ##Tabela CAMPAIGN.DAT
 Carregamento da tabela CAMPAIGN.dat
@@ -208,58 +189,6 @@ table(duplicated(card))
 
 ```
 
-## Tabela CATEGORY.dat
-```{r}
-category <- read.table("DATA-CRM/CATEGORY.dat", header = TRUE, sep = ",", dec = ",")
-```
-
-### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(category)
-dim(category)
-str(category)
-```
-
-### Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(category))
-```
-
-
-## Tabela SUBCATEGORY.dat
-```{r}
-subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat", header = TRUE, sep = ",", dec = ",")
-```
-
-### Verificação dos dados da tabela subcategory, tal como o némero de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(subcategory)
-dim(subcategory)
-str(subcategory)
-```
-### Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(subcategory))
-```
-
-
-## Tabela ITEM.dat
-```{r}
-item <- read.table("DATA-CRM/ITEM.dat", header = TRUE, sep = ";")
-```
-
-### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(item)
-dim(item)
-str(item)
-```
-
-Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(item))
-```
-
 
 #2. Pré-processamento dos dados
 
@@ -321,7 +250,7 @@ prop.table(table(df_card$Responded))*100
 
 
 
-#3. Criação de modelos de Data-Mining
+#3. Criação de modelos de Data-Mining e avaliação dos mesmos
 
 
 ```{r}
@@ -535,8 +464,9 @@ results.df
 #TODO: está a dar erro
 # K-Nearest neighbours
 ```{r}
-knnmodel <- train(Responded~.,
-                  data = trainSet,
+
+knnmodel <- train(y,
+                  data = x,
                   method = 'knn',
                   predProc = c("center","scale"),
                   tuneGrid = expand.grid(k = seq(1,100,2)),
@@ -570,18 +500,13 @@ results.df
 ```
 
 
-
-
-
-##################################################################################
-
 # Support Vector Machine (SVM) RADIAL
-
+```{r}
 set.seed(123)
 
 
 grid <- expand.grid(sigma = c(.01,.015, 0.2), C = c(0.75, 0.9, 1,1.1,1.25))
-svmodelradial <- train(Churned~.,
+svmodelradial <- train(Responded~.,
                  data = trainSet,
                  method = 'svmRadial',
                  PreProc = c("center","scale"),
@@ -592,11 +517,12 @@ svmodelradial <- train(Churned~.,
 
 svpredradial <- predict(svmodelradial,newdata = testSet)
 
-resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,svpredradial,"Support Vector Machine (SVM) - Radial"))
+results.df <- rbind(results.df,allcrosstabmeasures(test_Labels,svpredradial,"Support Vector Machine (SVM) - Radial"))
+results.df
+```
 
-##################################################################################
 # neural network
-
+```{r}
 set.seed(123)
 
 nnetGrid <- expand.grid(.decay = c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9), size = (1:9))
@@ -613,11 +539,30 @@ nnmodel <- train(Churned~.,
 
 nnpred <- predict(nnmodel,newdata = testSet)
 
-resutls.df <- rbind(resutls.df,allcrosstabmeasures(test_Labels,nnpred,"Neural network"))
+results.df <- rbind(results.df,allcrosstabmeasures(test_Labels,nnpred,"Neural network"))
+results.df
+```
 
 
 
 
-##################################################################################
+# Alterar o RFM para dados categoricos para avaliação
+```{r Criação de variáveis categóricas a partir dos dados numéricos do RFM}
 
-#4. Avaliação dos modelos
+table(df_card$rfm_score)
+summary(df_card)
+
+
+rfm_score_cat <- case_when(df_card$rfm_score <= 65 ~ 'Young-Old',
+                  between(df_card$rfm_score, 66, 75) ~ 'Med-Old',
+                  df_card$rfm_score >= 86 ~ 'Old-Old'
+                  )
+
+df_card <- rbind(df_card,rfm_score_cat)
+
+df_card$rfm_score_cat <- as.factor(df_card$rfm_score_cat)
+
+summary(df_card)
+
+```
+
