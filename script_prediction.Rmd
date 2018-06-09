@@ -253,18 +253,18 @@ prop.table(table(df_card$Responded))*100
 #3. Criação de modelos de Data-Mining e avaliação dos mesmos
 
 
-```{r}
+```{r Função para avaliação dos modelos e data frame para guardar os dados}
 
 
 allcrosstabmeasures <- function (tst_labels, pred_labels, modelname=""){
   if (length(unique(tst_labels)) == length(unique(pred_labels))) {
-  ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
-  accuracy <- sum(diag(ctmatrix$t))/sum(ctmatrix$t)
-  recall <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][1,]) #TPR Recall
-  precision <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][,1])
-  fpr <- ctmatrix[[1]][2,1]/sum(ctmatrix[[1]][2,])
-  f1 <- 2*precision*recall/(precision+recall)
-  pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
+    ctmatrix <- CrossTable(tst_labels,pred_labels,prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c("Real","Predicted"))
+    accuracy <- sum(diag(ctmatrix$t))/sum(ctmatrix$t)
+    recall <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][1,]) #TPR Recall
+    precision <- ctmatrix[[1]][1,1]/sum(ctmatrix[[1]][,1])
+    fpr <- ctmatrix[[1]][2,1]/sum(ctmatrix[[1]][2,])
+    f1 <- 2*precision*recall/(precision+recall)
+    pre <- (sum(ctmatrix[[1]][1,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,1])/sum(ctmatrix$t)) + (sum(ctmatrix[[1]][2,])/sum(ctmatrix$t)*sum(ctmatrix[[1]][,2])/sum(ctmatrix$t))
   kappa <- (accuracy - pre) / (1-pre)
   data.frame(model=modelname,accuracy=round(accuracy,digits = 3),recall=round(recall,digits = 3),precision=round(precision,digits = 3),f1=round(f1,digits = 3), kappa=round(kappa,digits = 3),fpr=round(fpr,digits = 3))
   } else {
@@ -291,11 +291,7 @@ results.df <- data.frame(model = character(),
 ```{r Holdout stratified}
 # Holdout stratified
    
-
-set.seed(1576)
-
-
-
+set.seed(123)
 
 #create of stratified train/test partitions
 train.idx <- createDataPartition(df_card$Responded, p = 0.7, list = F)
@@ -341,7 +337,7 @@ results.df
 ```
 
 
-```{r C5.0 com funcão treino}
+```{r C5.0 com funcao treino}
 ##################################################################################
 
 # C5.0 com funcão treino
@@ -393,6 +389,39 @@ results.df
 ##################################################################################
 ```
 
+Com a matrix de custos a ideia é tentar melhorar as previsões atribuindo custos a previsões menos desejadas.
+
+```{r C5.0 com uma marix de custos para tentar melhor o resultado}
+
+cost.matrix <- matrix(c(
+  NA, 4,
+  1, NA
+), 2, 2, byrow=TRUE)
+
+rownames(cost.matrix) <- colnames(cost.matrix) <- levels(trainSet$Responded)
+
+cost.matrix
+
+grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "tree",cost = cost.matrix)
+grid
+set.seed(123)
+
+C5model <- train(Responded~.,data = trainSet,
+                 method = "C5.0Cost",
+                 metric = "Accuracy",
+                 trControl = ctrl,
+                 tuneGrid = grid)
+
+C5model
+
+C5pred <- predict(C5model,tstSet)
+
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,C5pred,"C5.0 with costs "))
+results.df
+
+```
+
+
 
 ```{r Naive Bayes}
 ##################################################################################
@@ -428,7 +457,7 @@ rfmodel <- train(Responded~.,
                  method = "rf",
                  tuneGrid = expand.grid(.mtry=1:15),
                  trControl=control,
-                 ntree=1000)
+                 ntree=100)
 
 
 print(rfmodel)
@@ -541,26 +570,137 @@ results.df <- rbind(results.df,allcrosstabmeasures(test_Labels,nnpred,"Neural ne
 results.df
 ```
 
+#Analise do resultado dos modelos de classificação.
+
+"True positive" e "true negative" são as observações que foram corretamente previstas. a ideia e minimizar os "false positive" e os "false negative", sendo que o mais importante é reduzir o risco de perder negócio, com a identificação de clientes que não iriam responder à campanha quando o resultado era positivo.
+
+True Positives (TP) - Estes valores são valores da classe "Sim" que foram corretamente previstos.
+
+True Negatives (TN) - São os valores da classe "Não" que foram corretamente previstos como "Não".
+
+False positives and false negatives, these values occur when your actual class contradicts with the predicted class.
+
+False Positives (FP) - When actual class is no and predicted class is yes. E.g. if actual class says this passenger did not survive but predicted class tells you that this passenger will survive.
+
+False Negatives (FN) - When actual class is yes but predicted class in no. E.g. if actual class value indicates that this passenger survived and predicted class tells you that passenger will die.
+
+Once you understand these four parameters then we can calculate Accuracy, Precision, Recall and F1 score.
 
 
+Accuracy is the most intuitive performance measure and it is simply a ratio of correctly predicted observation to the total observations. One may think that, if we have high accuracy then our model is best. Yes, accuracy is a great measure but only when you have symmetric datasets where values of false positive and false negatives are almost same. Therefore, you have to look at other parameters to evaluate the performance of your model. For our model, we have got 0.803 which means our model is approx. 80% accurate.
 
-# Alterar o RFM para dados categoricos para avaliação
+Accuracy = TP+TN/TP+FP+FN+TN
+
+Precision - Precision is the ratio of correctly predicted positive observations to the total predicted positive observations. The question that this metric answer is of all passengers that labeled as survived, how many actually survived? High precision relates to the low false positive rate. We have got 0.788 precision which is pretty good.
+
+Precision = TP/TP+FP
+
+Recall (Sensitivity) - Recall is the ratio of correctly predicted positive observations to the all observations in actual class - yes. The question recall answers is: Of all the passengers that truly survived, how many did we label? We have got recall of 0.631 which is good for this model as it's above 0.5.
+
+Recall = TP/TP+FN
+
+F1 score - F1 Score is the weighted average of Precision and Recall. Therefore, this score takes both false positives and false negatives into account. Intuitively it is not as easy to understand as accuracy, but F1 is usually more useful than accuracy, especially if you have an uneven class distribution. Accuracy works best if false positives and false negatives have similar cost. If the cost of false positives and false negatives are very different, it's better to look at both Precision and Recall. In our case, F1 score is 0.701.
+
+F1 Score = 2*(Recall * Precision) / (Recall + Precision)
+
+So, whenever you build a model, this article should help you to figure out what these parameters mean and how good your model has performed.
+
+
+# Alterar o RFM para dados categoricos para avaliaçãodo tipo de cliente
 ```{r Criação de variáveis categóricas a partir dos dados numéricos do RFM}
 
 table(df_card$rfm_score)
+hist(df_card$rfm_score,breaks = seq(min(df_card$rfm_score), max(df_card$rfm_score), length.out = df_card$rfm_score))
+
 summary(df_card)
 
 
-rfm_score_cat <- case_when(df_card$rfm_score <= 65 ~ 'Young-Old',
-                  between(df_card$rfm_score, 66, 75) ~ 'Med-Old',
-                  df_card$rfm_score >= 86 ~ 'Old-Old'
+df_card$rfm_score_cat <- case_when(df_card$rfm_score <= 233 ~ 'Sporadically',
+                  between(df_card$rfm_score, 234, 443) ~ 'Regular',
+                  df_card$rfm_score >= 444 ~ 'Frequent'
                   )
-
-df_card <- rbind(df_card,rfm_score_cat)
 
 df_card$rfm_score_cat <- as.factor(df_card$rfm_score_cat)
 
 summary(df_card)
 
+new_df_card <- df_card[,c(1:7,9,10,12)]
+attach(new_df_card)
+
 ```
+
+# Declarar um data frame para guardar os dados estatisticos
+
+```{r}
+
+results.new_df <- data.frame(model = character(),
+                         accuracy = double(),
+                         recall = double(),
+                         precision = double(),
+                         f1 = double(),
+                         kappa = double(),
+                         fpr = double(),
+                         stringsAsFactors = FALSE)
+```
+
+
+## Holdout stratified
+```{r Holdout stratified from second classification}
+
+
+set.seed(123)
+
+#create of stratified train/test partitions
+train.idx <- createDataPartition(new_df_card$rfm_score_cat, p = 0.7, list = F)
+
+trainSet <- new_df_card[ train.idx, ]
+tstSet <-   new_df_card[-train.idx, ]
+
+table(trainSet$rfm_score_cat)
+round(prop.table(table(trainSet$rfm_score_cat))*100, digits = 2)
+
+train_labels <- trainSet$rfm_score_cat
+tst_labels <- tstSet$rfm_score_cat
+
+round(prop.table(table(train_labels))*100, digits = 2)
+round(prop.table(table(tst_labels))*100, digits = 2)
+
+ncols <- dim(trainSet)[2]
+ctrl <- trainControl(method = "cv", number = 10)
+```
+
+
+
+
+```{r C5.0 second classification}
+set.seed(123)
+
+modelLookup(model = "C5.0") # ver o que o model pede
+
+C5Model <- C5.0(rfm_score_cat~.,data = trainSet)
+
+summary(C5Model)
+
+C5Predict <- predict(C5Model,newdata = tstSet,type = "class")
+
+results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,C5Predict,"C5.0 Classif."))
+results.new_df
+```
+
+```{r C5.0 with adaptative boosting second classification}
+set.seed(123)
+
+boost100.model <- C5.0(rfm_score_cat~.,data = trainSet, trials = 100)
+
+summary(boost100.model)
+
+boost100.pred <- predict(boost100.model,tstSet)
+
+results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.0 with adaptative boosting "))
+results.new_df
+```
+
+
+
+
 
