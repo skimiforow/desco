@@ -1,7 +1,7 @@
 ---
-title: "DESCO - Knowledge Discovery - Prediction"
-author: "1141074 - Sergio Silva | 1970400 - Pedro Neves | 1040706 - Sergio Castro"
-date: "5/3/2018"
+title: "DESCO - Knowledge Discovery - Forecast responses to future campaigns"
+author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
+date: "11/6/2018"
 bibliography: bibliography.bib
 output:
   html_document: default
@@ -17,6 +17,8 @@ knitr::opts_chunk$set(error = TRUE)
 Este documento é focado na parte do processo relativo à classificação de clientes, o objetivo é futuramente conseguirmos prever tendo em conta novos clientes, qual a reposta que se irá ter às campanhas. 
 
 Numa primeira fase vamos esclher que dados dos clientes vamos analisar e como analisar, bem como, algum tipo de tratamento que seja possível efetuar.
+
+Para o calculo da métrica relativa ao RFM será necessário avaliar as tabelas **TRANSACTION.dat** e **TRANSACTION_ITEM.dat**
 
 
 ```{r Limpeza das variáveis de ambiente, include=FALSE}
