@@ -1,12 +1,13 @@
 ---
 title: "DESCO - Knowledge Discovery - Forecast responses to future campaigns"
-author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
+author: "1141074 - SÃ©rgio Silva | 1970400 - Pedro Neves | 1040706 - SÃ©rgio Castro"
 date: "11/6/2018"
-bibliography: bibliography.bib
 output:
+  pdf_document: default
+  editor_options: null
   html_document: default
-  editor_options:
   chunk_output_type: console
+bibliography: bibliography.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -282,8 +283,7 @@ df_card$Responded <- factor(df_card$Responded, levels = c(TRUE, FALSE), labels =
 ```
 
 
-#### Visualizacao dos dados para análise
-
+### Visualizacao dos dados para análise
 ```{r Visualizacao grafica dos dados}
 summary(df_card)
 str(df_card)
@@ -332,16 +332,20 @@ results.df <- data.frame(model = character(),
 
 
 #### Devido a taxa de *Sim* no atributo *Responded* ser inferior a 20%, foi necessario efetuar um Oversamppling dos dados positivos para equilibrar os mesmos.
+
+## Holdout stratified
 ```{r Oversampling dos dados, include=TRUE}
 ## Holdout stratified
    
 set.seed(123)
+
 
 ##create of stratified train/test partitions
 train.idx <- createDataPartition(df_card$Responded, p = 0.7, list = F)
 
 trainSet <- df_card[ train.idx, ]
 tstSet <-   df_card[-train.idx, ]
+attach(trainSet)
 
 ## Criar o oversampling para resolver o problema dos dados desbalanceados.
 oversampling <- trainSet[ which(trainSet$Responded=='Sim'),]
@@ -364,7 +368,7 @@ ctrl <- trainControl(method = "cv", number = 10)
 ```
 
 
-Método C5.0
+## Método C5.0
 ```{r C5.0, eval=FALSE}
 set.seed(123)
 
@@ -380,15 +384,44 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,C5Predict,"C5.0 Cl
 results.df
 ```
 
-Método C5.0 com função treino
+Alguns dos dados que obtemos na execução dos algotirmos, tais como a àrvore de classificação, bem como, os atributos por ordem de utilização:
+
+      	Attribute usage:
+      
+      	100.00%	clientYears
+      	 93.74%	rfm_score
+      	 87.66%	City
+      	 58.82%	YoungestChild
+      	 49.04%	MaritalStatus
+      	 48.63%	age
+      	 47.55%	NumChildren
+      	 19.44%	Gender
+      	 14.50%	HasChildren
+      	  5.09%	Region
+
+A matriz de confusão que nos permite ter acesso às medidas de avaliação dos modelos criados:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       282 |       437 |       719 | 
+                 |     0.077 |     0.119 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       806 |      2134 |      2940 | 
+                 |     0.220 |     0.583 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |      1088 |      2571 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+
+## Método C5.0 com função treino
 ```{r C5.0 com funcao treino, eval=FALSE}
-####################################################################################################################################################################
 
 ## C5.0 com funcao treino
+set.seed(123)
 
 
 ##grade de parametros para otimizar o algoritmo
-
 grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "tree")
 grid
 
@@ -398,10 +431,17 @@ C5model <- train(Responded~.,data = trainSet,
                  trControl = ctrl,
                  tuneGrid = grid)
 C5model
+```
+
+
+```{r C5.0 com funcao treino Winnow}
 
 trellis.par.set(caretTheme())
 plot(C5model)
+```
 
+Método C5.0 com função treino execução
+```{r C5.0 com funcao treino execução do modelos, eval=FALSE}
 
 C5pred <- predict(C5model, tstSet)
 
@@ -412,9 +452,22 @@ results.df
 ```
 
 
-Método C5.0 with adaptative boosting
+Matriz de confusão do método C5.0 com funcao treino:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       231 |       488 |       719 | 
+                 |     0.063 |     0.133 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       498 |      2442 |      2940 | 
+                 |     0.136 |     0.667 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       729 |      2930 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+## Método C5.0 with adaptative boosting
 ```{r C5.0 with adaptative boosting, eval=FALSE}
-####################################################################################################################################################################
 
 ## C5.0 with adaptative boosting
 
@@ -429,10 +482,79 @@ boost100.pred <- predict(boost100.model,tstSet)
 results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,boost100.pred,"C5.0 with adaptative boosting "))
 results.df
 
-####################################################################################################################################################################
 ```
 
-Método Naive Bayes
+
+Matriz de confusão do método C5.0 com adaptative boosting:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       253 |       466 |       719 | 
+                 |     0.069 |     0.127 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       616 |      2324 |      2940 | 
+                 |     0.168 |     0.635 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       869 |      2790 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+
+
+Com a matrix de custos a ideia é tentar melhorar as previsões atribuindo custos a previsões menos desejadas.
+A ideia é atribuir um custo superior quando ele considera um cliente que respondeu a uma campanha na realidade como não ter respondido.
+```{r C5.0 com matriz de custos, eval=FALSE}
+
+set.seed(123)
+
+
+cost.matrix <- matrix(c(
+  0, 1,
+  4, 0
+),2,2, byrow=TRUE)
+
+rownames(cost.matrix) <- colnames(cost.matrix) <- levels(trainSet$Responded)
+
+cost.matrix
+
+fitControl <- trainControl(method="repeatedcv", number=10, repeats=5)
+
+
+grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "tree",cost = cost.matrix)
+grid
+
+C5modelCosts <- train(Responded~.,data = trainSet,
+                 method = "C5.0Cost",
+                 metric = "Accuracy",
+                 trControl = fitControl,
+                 tuneGrid = grid)
+
+C5modelCosts
+
+C5predCosts <- predict(C5modelCosts,tstSet)
+
+results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,C5predCosts,"C5.0 with costs "))
+results.df
+
+```
+
+
+Matriz de confusão do método C5.0 com matriz de custos:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       276 |       443 |       719 | 
+                 |     0.075 |     0.121 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       677 |      2263 |      2940 | 
+                 |     0.185 |     0.618 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       953 |      2706 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+
+## Método Naive Bayes
 ```{r Naive Bayes, eval=FALSE}
 ####################################################################################################################################################################
 
@@ -455,7 +577,22 @@ results.df
 ####################################################################################################################################################################
 ```
 
-Método Random Forest
+Matriz de confusão do método Naive Bayes:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       145 |       574 |       719 | 
+                 |     0.040 |     0.157 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       529 |      2411 |      2940 | 
+                 |     0.145 |     0.659 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       674 |      2985 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+
+## Método Random Forest
 ```{r Random Forest, eval=FALSE}
 
 
@@ -473,19 +610,40 @@ rfmodel <- train(Responded~.,
                  tuneGrid = expand.grid(.mtry=1:15),
                  trControl=control,
                  ntree=100)
+```
 
+```{r Random Forest plot}
 
 print(rfmodel)
 plot(rfmodel)
 
 varImp(rfmodel)
+```
+
+Método Random Forest execução do modelo
+```{r Random Forest avaliação, eval=FALSE}
 
 rfpredict <- predict(rfmodel,newdata = tstSet,type = 'raw')
 results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,rfpredict,"Random Forest"))
 results.df
 ```
 
-Método Logistic regression
+Matriz de confusão do método Random Forest:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       114 |       605 |       719 | 
+                 |     0.031 |     0.165 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       265 |      2675 |      2940 | 
+                 |     0.072 |     0.731 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       379 |      3280 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+
+## Método Logistic regression
 ```{r Logistic Regression, eval=FALSE}
 
 set.seed(123)
@@ -506,7 +664,22 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,glmpred,"Logistic 
 results.df
 ```
 
-Método K-Nearest neighbours
+
+Matriz de confusão do método Logistic regression:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       123 |       596 |       719 | 
+                 |     0.034 |     0.163 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       452 |      2488 |      2940 | 
+                 |     0.124 |     0.680 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       575 |      3084 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+## Método K-Nearest neighbours
 ```{r K-Nearest neighbours, eval=FALSE}
 set.seed(123)
 
@@ -525,15 +698,29 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,knnpred,"K-Nearest
 results.df
 ```
 
-Método Support Vector Machine (SVM) LINEAR
+Matriz de confusão do método K-Nearest neighbours:
+
+                 | Predicted 
+            Real |       Sim |       Nao | Row Total | 
+    -------------|-----------|-----------|-----------|
+             Sim |       202 |       517 |       719 | 
+                 |     0.055 |     0.141 |           | 
+    -------------|-----------|-----------|-----------|
+             Nao |       690 |      2250 |      2940 | 
+                 |     0.189 |     0.615 |           | 
+    -------------|-----------|-----------|-----------|
+    Column Total |       892 |      2767 |      3659 | 
+    -------------|-----------|-----------|-----------|
+
+## Método Support Vector Machine (SVM) LINEAR
 ```{r Support Vector Machine (SVM) LINEAR, eval=FALSE}
 set.seed(123)
 
-modelLookup(model = "svmLinear") 
+modelLookup(model = "svmLinear2") 
 
 svmodel <- train(Responded~.,
                  data = trainSet,
-                 method = 'svmLinear',
+                 method = 'svmLinear2',
                  metric = 'Accuracy',
                  maximize = FALSE,
                  tuneLength = 15,
@@ -545,7 +732,7 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,svpred,"Support Ve
 results.df
 ```
 
-Método Support Vector Machine (SVM) RADIAL
+## Método Support Vector Machine (SVM) RADIAL
 ```{r Support Vector Machine (SVM) RADIAL, eval=FALSE}
 set.seed(123)
 
@@ -567,7 +754,7 @@ results.df <- rbind(results.df,allcrosstabmeasures(test_Labels,svpredradial,"Sup
 results.df
 ```
 
-## neural network
+## Método neural network
 ```{r neural network, eval=FALSE}
 set.seed(123)
 
@@ -591,50 +778,67 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,nnpred,"Neural net
 results.df
 ```
 
-##Analise do resultado dos modelos de classificacao.
+##Análise do resultado dos modelos de classificação.
 
-"True positive" e "true negative" sao as observacões que foram corretamente previstas. a ideia e minimizar os "false positive" e os "false negative", sendo que o mais importante e reduzir o risco de perder negocio, com a identificacao de clientes que nao iriam responder a campanha quando o resultado era positivo.
+**True positive** e **true negative** são as observacões que foram corretamente previstas. a ideia aqui é minimizar os "false positive" e os "false negative", sendo que o mais importante é reduzir o risco de perder negócio com a classificação errada, com a identificação de clientes que não iriam responder à campanha quando o resultado era na realidade positivo.
 
-True Positives (TP) - Estes valores sao valores da classe "Sim" que foram corretamente previstos.
+**True Positives** (TP) - Estes valores são valores da classe "Sim" que foram corretamente previstos.
 
-True Negatives (TN) - Sao os valores da classe "Nao" que foram corretamente previstos como "Nao".
+**True Negatives** (TN) - Sao os valores da classe "Não" que foram corretamente previstos.
 
-Os falsos positivos e os falso negativos sao valores que ocorrem quando o modelo classifica as classes de forma contraria ao atual.
+Os falsos positivos e os falso negativos são valores que ocorrem quando o modelo classifica as classes erradamente e de forma contrária ao real
 
-False Positives (FP) - As ocorrências em que se obtem "Sim" na previsao do modelo mas na realidade sao "Nao".
+**False Positives** (FP) - As ocorrências em que se obtem "Sim" na previsao do modelo mas na realidade sao "Não".
 
-False Negatives (FN) - Ao contrario dos falsos positivos, aqui a previsao originada e o "Nao" mas deveria ter sido "Sim".
+**False Negatives** (FN) - Ao contrario dos falsos positivos, aqui a previsao originada e o "Não" mas deveria ter sido "Sim".
 
-Com estes paramtros da matriz de confusao, conseguimos avaliar varios parametros dos modelos, tal como, Accuracy, Precision, Recall e F1 score.
+Com estes parâmetros da matriz de confusão, conseguimos avaliar vários parâmetros dos modelos, tal como, *Accuracy*, *Precision*, *Recall* e *F1 score*.
 
 
-A Accuracy e uma medida de performance do modelo que e um racio entre os valores corretamente previstos tendo em conta o número total de observacões. Esta medida e boa na avaliacao de modelos equilibrados/balanceados, modelos que se obtem o mesmo número de falso positivos e falso negativos. Desta forma e necessario avaliar outras medidas.
+A *Accuracy* é uma medida de performance do modelo que e um racio entre os valores corretamente previstos tendo em conta o número total de observacões. Esta medida é boa na avaliação de modelos equilibrados/balanceados, modelos que se obtem o mesmo número de falso positivos e falso negativos. Desta forma e como não é o caso, é necessario avaliar com outras medidas.
 
-Accuracy = TP+TN/TP+FP+FN+TN
+*Accuracy = TP+TN/TP+FP+FN+TN*
 
-Precision - Indica o racio de valores positivos corretamente classificados tendo em conta o total de observacões positivas.
+*Precision* - Indica o racio de valores positivos corretamente classificados tendo em conta o total de observacões positivas.
 
-Precision = TP/TP+FP
+*Precision = TP/TP+FP*
 
-Recall (Sensitivity) - Indica o racio de observacões corretamente previstas e todas as observacões da classe. Vais indicar quantos dos "Sim" foram corretamente classificados.
+*Recall* (Sensitivity) - Indica o racio de observacões corretamente previstas e todas as observacões da classe. Vai indicar quantos dos "Sim" foram corretamente classificados.
 
-Recall = TP/TP+FN
+*Recall = TP/TP+FN*
 
-F1 score - Esta medida e uma media pesada entre a Precision e a Recall, tendo em conta ambos os falsos positivos e os falsos negativos. Esta medida podera ser a mais acertada, principalmente no caso de termos classes desbalanceadas. 
+*F1 score* - Esta medida e uma media pesada entre a Precision e a Recall, tendo em conta ambos os falsos positivos e os falsos negativos. Esta medida podera ser a mais acertada, principalmente no caso de termos classes desbalanceadas. 
 
-F1 Score = 2*(Recall * Precision) / (Recall + Precision)
+*F1 Score = 2 x (Recall x Precision) / (Recall + Precision)*
 
-Resultados obtidos correndo os algoritmos classificacao:
+Resultados obtidos correndo os algoritmos classificação:
 
                              model    accuracy  recall    precision   f1    kappa   fpr
                       C5.0 Classif.   0.660     0.392     0.259       0.312 0.099   0.274
              C5.0 with train caret    0.731     0.321     0.317       0.319 0.151   0.169
      C5.0 with adaptative boosting    0.704     0.352     0.291       0.319 0.132   0.210
-                   C5.0 with costs    0.731     0.321     0.317       0.319 0.151   0.169
+                   C5.0 with costs    0.694     0.384     0.290       0.330 0.137   0.230
                        Naive Bayes    0.699     0.202     0.215       0.208 0.022   0.180
                      Random Forest    0.762     0.159     0.301       0.208 0.083   0.090
                Logistic regression    0.714     0.171     0.214       0.190 0.019   0.154
+              K-Nearest neighbours    0.670     0.281     0.226       0.251 0.042   0.235
                     Neural network    0.654     0.328     0.231       0.271 0.053   0.267
+
+##Avaliação dos modelos
+
+Devido ao grande desbalanceamento dos dados podemos observar que os valor obtidos de nas medidas de análise são muito baixos.
+
+. A medida de *accuracy* encontra-se entre os 65% e 76%
+. A medida de *recall* encontra-se entre os 16% e 39%
+. A medida de *precision* encontra-se entre os 22% e 32%
+. A medida de *f1* encontra-se entre os 19% e 33%
+
+Nesta avaliação os métodos de classificação o método que apresentou melhores resultados foi o:
+
+                             model    accuracy  recall    precision   f1    kappa   fpr
+                   C5.0 with costs    0.694     0.384     0.290       0.330 0.137   0.230
+                   
+Apesar de não ser o método que apresentou a melhor *accuracy*, foi o que mostrou melhores resultados no *score f1*, que será a variável mais interessante no caso dos dados aqui analisados.
 
 
 ```{r Avaliacao dos modelos}
@@ -668,12 +872,15 @@ results.df[order(results.df$accuracy, decreasing= TRUE),]
 
 ###### SEGUNDA CLASSIFICAcaO ######
 
-## Alterar o RFM para dados categoricos para avaliacao do tipo de cliente
-Ao categoriazar os clientes pelo valor de RFM atribuido, podemos tentar prever o tipo dos clientes novos. Os factores da classe a prever foram criados seguindo a seguinte regra:
+## Para uma segunda classificação dos clientes, forma usados os dados do *score RFM*, em que estes dados númericos forma convertidos para fatores de acordo com uma regra definida abaixo.
 
-Com um score de RFM inferior ou igual a 233, consideramos um cliente esporadico.
-Com um score de RFM entre 234 e 443, consideramos um cliente regular.
-Com um score de RFM superior ou igual a 444, consideramos um cliente frequente.
+Ao categoriazar os clientes pelo valor de RFM atribuido, podemos tentar prever o tipo dos clientes novos. 
+
+Os factores da classe a prever foram criados seguindo a seguinte regra:
+
+Com um score de *RFM* inferior ou igual a 233, consideramos um cliente **esporádico.**
+Com um score de *RFM* entre 234 e 443, consideramos um cliente **regular.**
+Com um score de *RFM* superior ou igual a 444, consideramos um cliente **frequente.**
 
 
 
@@ -717,7 +924,7 @@ results.new_df <- data.frame(model = character(),
 ```
 
 
-#### Holdout stratified, neste caso nao consideramos a necessidade de fazer o oversampling pois os valores sao relativamente equilibrados.
+## Holdout stratified, neste caso nao consideramos a necessidade de fazer o oversampling pois os valores sao relativamente equilibrados.
 ```{r Holdout stratified from second classification}
 
 
@@ -748,7 +955,7 @@ ctrl <- trainControl(method = "cv", number = 10)
 
 
 
-
+Método de classificação C5.0
 ```{r C5.0  segunda classificacao, eval=FALSE}
 set.seed(123)
 
@@ -764,6 +971,7 @@ results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,C5Predict,
 results.new_df
 ```
 
+Método de classificação C5.0 com adpatative boosting
 ```{r C5.0 with adaptative boosting segunda classificacao, eval=FALSE}
 set.seed(123)
 
@@ -778,35 +986,7 @@ results.new_df
 ```
 
 
-###TODO: Esta a dar erro porque nao consegue prever registo com o atributo frequente.
-```{r C5.0 com funcao treino  segunda classificacao, eval=FALSE}
-####################################################################################################################################################################
-
-##grade de parametros para otimizar o algoritmo
-grid <- expand.grid(winnow = c(TRUE,FALSE), trials = c(1,2,10,15,20), model = "tree")
-grid
-
-
-C5model <- train(rfm_score_cat~.,data = trainSet,
-                 method = 'C5.0',
-                 metric = 'Accuracy',
-                 trControl = ctrl,
-                 tuneGrid = grid)
-C5model
-
-trellis.par.set(caretTheme())
-plot(C5model)
-
-
-C5pred <- predict(C5model, tstSet)
-
-table(C5pred)
-
-results.new_df <- rbind(results.new_df, allcrosstabmeasures(tst_labels, C5pred, "C5.0 with train caret "))
-results.new_df
-```
-
-
+Método de classificação Naive Bayes.
 ```{r Naive Bayes segunda classificacao, eval=FALSE}
 ####################################################################################################################################################################
 
@@ -827,7 +1007,7 @@ results.new_df
 ####################################################################################################################################################################
 ```
 
-
+Método de classificação K-Nearest neighbours.
 ```{r K-Nearest neighbours segunda classificacao, eval=FALSE}
 set.seed(123)
 
@@ -845,26 +1025,8 @@ results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,knnpred,"K
 results.new_df
 ```
 
-###TODO: Esta a dar erro porque nao consegue prever registos com o atributo frequente.
-```{r Support Vector Machine (SVM) LINEAR segunda classificacao, eval=FALSE}
-set.seed(123)
 
-svmodel <- train(rfm_score_cat~.,
-                 data = trainSet,
-                 method = 'svmLinear',
-                 metric = 'Accuracy',
-                 maximize = FALSE,
-                 tuneLength = 15,
-                 trControl = crtl)
-
-svpred <- predict(svmodel,newdata = tstSet)
-table(svpred)
-
-results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,svpred,"Support Vector Machine (SVM) - Linear"))
-results.new_df
-```
-
-
+Método de classificação Suport Vector Machine com o method Radial.
 ```{r Support Vector Machine (SVM) RADIAL segunda classificacao, eval=FALSE}
 set.seed(123)
 grid <- expand.grid(sigma = c(.01,.015, 0.2), C = c(0.75, 0.9, 1,1.1,1.25))
@@ -884,31 +1046,9 @@ results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,svpredradi
 results.new_df
 ```
 
+Com os métodos Neural Network e Support Vector Machine (SVM) LINEAR, não foi possível classificar pois nunca foi capaz de prever o atributo do tipo frequente, logo não consideramos na nossa análise.
 
-###TODO: Esta a dar erro porque nao consegue prever registos com o atributo frequente.
-```{r neural network segunda classificacao, eval=FALSE}
-set.seed(123)
 
-nnetGrid <- expand.grid(.decay = c(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1), size = (1:10))
-nnetGrid <- expand.grid(decay = c(0, 0.01, .1),
-                        size = c(1:10))
-
-nnmodel <- train(rfm_score_cat~.,
-                 data = trainSet,
-                 method = 'nnet',
-                 metric = 'Accuracy',
-                 tuneGrid = nnetGrid,
-                 trace = FALSE,
-                 maxit = 1000,
-                 preProc = c("center","scale"),
-                 trControl = crtl)
-
-nnpred <- predict(nnmodel,newdata = tstSet)
-table(nnpred)
-
-results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,nnpred,"Neural network"))
-results.new_df
-```
 
 
 ## Avaliacao dos modelos para previsao do atributo de cliente baseado no RFM.
