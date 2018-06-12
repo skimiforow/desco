@@ -13,96 +13,300 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #Limpeza do ambiente
 
-```{r Clean Environment}
+```{r Clean Environment, include=FALSE}
 rm(list = ls())
 ```
 
 #Bibliotecas necessárias
-
 ```{r}
-library(lattice)
-library(ggplot2)
-library(caret)
-library(C50)
+
 library(data.table)
-library(randomForest)
 library(rfm)
 library(lubridate)
-library(gmodels)
-library(e1071) #Nayve Bayes
-```
-
-
-##Tabela BRAND.DAT
-```{r BRAND.dat}
-brand <- read.table("DATA-CRM/BRAND.dat", header = TRUE, sep = ",", dec = ",")
-```
-
-Verificação dos dados da tabela brand, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r }
-summary(brand)
-dim(brand)
-str(brand)
+library(dplyr)
 
 ```
 
-Verificar se a tabela possui dados nulos
+
+#Carregamento das tabelas de transações
+
+The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].
+
+Loading of the tables to create model RFM
+```{r Carregamento}
+keycols <- c('Store', 'Date', 'Time', 'TransactionID')
+
+transactions = fread('DATA-CRM/TRANSACTION.dat')
+setkeyv(transactions, keycols)
+
+trans.items = fread('DATA-CRM/TRANSACTION_ITEM.dat')
+setkeyv(trans.items, keycols)
+
+```
+
+##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
+
+```{r Merge}
+result.transactions <- merge(transactions, trans.items, all = TRUE)
+result.transactions[, Date := as.Date(as.character.Date(Date), "%Y%m%d")]
+result.transactions <- na.omit(result.transactions, cols = "Date")
+```
+
+
+## Gerar RFM Score com package rfm
+
+Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
+```{r RFM algorithm}
+analysis.date <- as.Date("2015-01-01")
+
+orders <- result.transactions[, .(CardID, Date, Amount)]
+rfm_result <- rfm_table_order(orders, CardID, Date, Amount, analysis.date)
+
+summary(rfm_result)
+str(rfm_result)
+
+```
+
+#1. Exploração e preparação dos dados
+
+## Tabela CARD.dat
+```{r CARD.dat}
+cards = fread("DATA-CRM/CARD.dat", stringsAsFactors = TRUE)
+```
+
+### Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
-table(is.na(brand))
-unique(brand)
-table(duplicated(brand))
+summary(cards)
+dim(cards)
+str(cards)
+nrow(cards[!complete.cases(cards), ])
 ```
+
+### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritalStatus há dados nulos que devem ser tratados também.
+
+```{r}
+
+cards[NumChildren < 0, NumChildren := 0]
+cards[YoungestChild < 0, YoungestChild := 0]
+  
+# Como existem observações que indicam ter filhos, mas depois o campo do número de filhos está a 0, decidimos alterar o atributo "HasChildren" para "N"
+cards[NumChildren == 0 & HasChildren == 'Y', .N]   #13
+cards[NumChildren == 0 & HasChildren == 'Y', HasChildren := 'N']
+
+# NumChildren > 0 e HasChildren
+cards[NumChildren > 0 & HasChildren == 'N', .N]    #8138
+cards[NumChildren > 0 & HasChildren == 'N', HasChildren := 'Y']
+
+# Se não há filhos, colocar YoungestChild <- 0
+cards[NumChildren == 0 & HasChildren == 'N', YoungestChild := 0]
+
+
+
+# Verificamos que o MaritalStatus possui dados vazios
+table(cards$MaritalStatus)
+
+cards[MaritalStatus == "", MaritalStatus := "O"]
+cards$MaritalStatus <- droplevels(cards$MaritalStatus)
+```
+
+### Verificar se a tabela Card possui dados nulos
+```{r}
+table(is.na(cards))
+unique(cards)
+table(duplicated(cards))
+
+```
+
+
+#2. Pré-processamento dos dados
+
+## Dados dos clientes
+```{r juntar dados dos clientes}
+df_customers <- merge(cards, rfm_result$rfm[, c(1, 9)], by.x = 'CardID', by.y = 'customer_id')
+
+df_customers[, CardStartDate := as.Date(as.character.Date(CardStartDate), "%Y%m%d")]
+df_customers[, DateOfBirth := as.Date(as.character.Date(DateOfBirth), "%Y%m%d")]
+
+```
+
+```{r criar as colunas com idade e anos de cliente}
+analysis_date <- as.Date("2015-01-01")
+
+# Calcular Idade do cliente
+yr = duration(num = 1, units = "years")
+df_customers[, age := round(interval(DateOfBirth, analysis_date)/yr,digits = 0)]
+
+# Anos de cliente
+df_customers[, clientYears := round(interval(CardStartDate, analysis_date)/yr,digits = 0)]
+
+summary(df_customers)
+```
+
+## Dados das compras
+```{r}
+
+## Tabela ITEM.dat
+items <- fread("DATA-CRM/ITEM.dat", stringsAsFactors = TRUE)
+
+### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
+summary(items)
+dim(items)
+str(items)
+
+#Verificar se a tabela possui dados nulos
+table(is.na(items))
+```
+
+# Join com a tabela de transações + cardID
+```{r}
+
+setkeyv(items, c('ItemCode'))
+setkeyv(result.transactions, c('ItemCode'))
+
+result.purchases <- merge(result.transactions, items, all.x = TRUE)
+
+
+df_purchases <- result.purchases[, c(1:7, 9)]
+
+```
+
+```
+
+
+
+
+```{r retirar id e código postal, CardStartDate e DateOfBirth}
+
+df_customers <- df_customers[, c(2,3,6,8:15)]
+
+# Mudar o atributo objetivo para o fim da tabela
+df_customers <- df_customers[, c(1:8,10,11,9)]
+
+str(df_customers)
+
+
+df_customers$Gender <- factor(df_customers$Gender, levels = c("F", "M"), labels = c("Feminino", "Masculino"))
+df_customers$MaritalStatus <- factor(df_customers$MaritalStatus, levels = c("M", "S", "O"), labels = c("Casado", "Solteiro", "Outro"))
+df_customers$HasChildren <- factor(df_customers$HasChildren, levels = c("Y", "N"), labels = c("Sim","Não"))
+df_customers$Responded <- factor(df_customers$Responded, levels = c(TRUE, FALSE), labels = c("Sim","Não"))
+
+```
+
+```{r}
+
+df_customers$rfm_score_cat <- case_when(df_customers$rfm_score <= 233 ~ 'Sporadically',
+                  between(df_customers$rfm_score, 234, 443) ~ 'Regular',
+                  df_customers$rfm_score >= 444 ~ 'Frequent'
+                  )
+
+df_customers$rfm_score_cat <- as.factor(df_customers$rfm_score_cat)
+
+summary(df_customers)
+
+data <- df_customers[,c(2:5,9,12)]
+
+
+data$age_interval <- cut(data$age, 
+                      breaks = c(0, 50, 65, +Inf), 
+                      labels = c("< 50", "< 65", ">= 65"), 
+                      right = FALSE)
+
+
+View(data)
+
+with(data,
+  plot( age_interval, rfm_score_cat, xlab = "Age", ylab = "RFM Score")
+  )
+
+
+```
+
+
+```{r}
+#Categorial clustering with k-modes algorithm
+library(klaR)
+
+set.seed(123)
+
+#(cluster.results <- kmodes(data[, 6:7], 9, iter.max = 10, weighted = TRUE))
+#plot(data[, 6:7], col = cluster.results$cluster)
+
+(clusters5 <- kmodes(data, 5, iter.max = 10, weighted = FALSE))
+(clusters3 <- kmodes(data, 3, iter.max = 10, weighted = FALSE))
+
+plot(data, col=cluster.results$cluster)
+
+```
+
+Hierarchical Clustering
+```{r}
+
+
+clusters <- hclust(dist(data[, 5]))
+#plot(clusters)
+clusterCut <- cutree(clusters, 3)
+
+
+
+library(cluster)
+
+gower.dist <- daisy(data[1:1000, ], metric = "gower")
+
+# Divisive (DIANA)
+divisive.clust <- diana(as.matrix(gower.dist), 
+                  diss = TRUE, keep.diss = TRUE)
+
+plot(divisive.clust, main = "Divisive")
+
+# Agglomerative (AGNES)
+
+```
+
 
 
 ## Tabela CATEGORY.dat
 ```{r}
-category <- read.table("DATA-CRM/CATEGORY.dat", header = TRUE, sep = ",", dec = ",")
+Categories <- fread("DATA-CRM/CATEGORY.dat")
 ```
 
 ### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
-summary(category)
-dim(category)
-str(category)
+summary(Categories)
+dim(Categories)
+str(Categories)
 ```
 
 ### Verificar se a tabela possui dados nulos
 ```{r}
-table(is.na(category))
+table(is.na(Categories))
 ```
 
 
 ## Tabela SUBCATEGORY.dat
 ```{r}
-subcategory <- read.table("DATA-CRM/SUBCATEGORY.dat", header = TRUE, sep = ",", dec = ",")
+Subcategories <- fread("DATA-CRM/SUBCATEGORY.dat")
 ```
 
-### Verificação dos dados da tabela subcategory, tal como o némero de colunas e linhas, bem como se os dados foram corretamente carregados.
+### Verificação dos dados da tabela subcategory, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
 ```{r}
-summary(subcategory)
-dim(subcategory)
-str(subcategory)
+summary(Subcategories)
+dim(Subcategories)
+str(Subcategories)
 ```
 ### Verificar se a tabela possui dados nulos
 ```{r}
-table(is.na(subcategory))
+table(is.na(Subcategories))
 ```
 
 
-## Tabela ITEM.dat
+
+
+
+
 ```{r}
-item <- read.table("DATA-CRM/ITEM.dat", header = TRUE, sep = ";")
-```
 
-### Verificação dos dados da tabela item, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(item)
-dim(item)
-str(item)
-```
+setkey(Categories, "CategoryCode")
+setkey(Subcategories, "SubCategoryCode")
+Result <-  Categories[Subcategories, ]
 
-Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(item))
 ```
-
