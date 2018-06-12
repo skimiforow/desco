@@ -1,6 +1,6 @@
 ---
 title: "DESCO - Knowledge Discovery - Forecast responses to future campaigns"
-author: "1141074 - SÃ©rgio Silva | 1970400 - Pedro Neves | 1040706 - SÃ©rgio Castro"
+author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
 date: "11/6/2018"
 output:
   pdf_document: default
@@ -11,8 +11,8 @@ bibliography: bibliography.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(error = TRUE)
+knitr::opts_chunk$set(echo = TRUE,error = TRUE,tidy.opts = list(width.cutoff = 60),tidy=TRUE)
+
 ```
 
 Este documento é focado na parte do processo relativo à classificação de clientes, o objetivo é futuramente conseguirmos prever tendo em conta novos clientes, qual a reposta que se irá ter às campanhas. 
@@ -24,6 +24,7 @@ Para o calculo da métrica relativa ao RFM será necessário avaliar as tabelas **T
 
 ```{r Limpeza das variáveis de ambiente, include=FALSE}
 rm(list = ls())
+
 ```
 
 
@@ -88,9 +89,10 @@ Por defeito, o RFM atribui valores de 1 a 5 e apesar destes valores poderem ser 
 [Ref. @Birant2011]
 
 Calculo do *Recency*, *Frequency*, *Monetary* a partir da tabela de transacões, resultado do *merge* anterior.
-```{r RFM algorithm}
+```{r RFM algorithm, echo=TRUE}
 
-# Data definida para a análise, foi defenida a data de 01-01-2015 pois como os dados são de 2014, faria sentido aplicar esta análise nesta altura. 
+# Data definida para a análise, foi escolhida a data de 01-01-2015 pois como os dados são
+#de 2014, faria sentido aplicar esta análise nesta altura. 
 analysis_date <- as.Date("2015-01-01")
 
 
@@ -100,7 +102,7 @@ rfm_result <- rfm_table_order(data = orders, customer_id = CardID, order_date = 
 ```
 
 Análise dos dados obtidos na aplicação do algotirtmo de **RFM** do package *rfm*
-```{r RFM algorithm analysis, include=FALSE}
+```{r RFM algorithm analysis, echo=TRUE}
 
 # Verificação visual dos dados
 summary(rfm_result)
@@ -184,7 +186,7 @@ Verificacao dos dados da tabela card, tal como o número de colunas e linhas, bem
 Podemos verificar alguns dados como *NumChildren* e *YoungestChild* que possuem dados negativos e que será necessário corrigir.
 No atributo *MaritalStatus* verificamos a existência de dados nulos.
 
-```{r Avaliacao da Tabela CARD}
+```{r Avaliacao da Tabela CARD, echo=TRUE}
 summary(card)
 dim(card)
 str(card)
@@ -284,20 +286,22 @@ df_card$Responded <- factor(df_card$Responded, levels = c(TRUE, FALSE), labels =
 
 
 ### Visualizacao dos dados para análise
-```{r Visualizacao grafica dos dados}
+```{r Visualizacao grafica dos dados, echo=TRUE}
 summary(df_card)
 str(df_card)
+
+
 
 ## Verificar a percentagem de clientes que responderam a campanha
 barplot(table(df_card$Responded), ylim = c(0,10000), main = "Responded")
 
-prop.table(table(df_card$Responded))*100
+round(prop.table(table(df_card$Responded))*100,digits = 2)
 
 ```
 
 Podemos verificar que a proporção de *Sim* e *Não* está muito desbalanceada, pelo que irá ser necessário fazer algo para balancear as proporções, visto que alguns algoritmos não vão conseguir prever o *Sim*.
 
-##3. Criacao da função para avaliação de modelos de Data-Mining e data-frame para guardar os resultados.
+##3. Criação da função para avaliação de modelos de Data-Mining e data-frame para guardar os resultados.
 ```{r criacao de funcao para avaliar os modelos e vetor para guardar os resultados, include=TRUE, eval=TRUE}
 ##Funcao para avaliacao dos modelos e data frame para guardar os dados
 
@@ -367,8 +371,9 @@ ncols <- dim(trainSet)[2]
 ctrl <- trainControl(method = "cv", number = 10)
 ```
 
+##4. Algoritmos de classificação
 
-## Método C5.0
+### Método de classificação C5.0
 ```{r C5.0, eval=FALSE}
 set.seed(123)
 
@@ -414,8 +419,8 @@ A matriz de confusão que nos permite ter acesso às medidas de avaliação dos mode
     -------------|-----------|-----------|-----------|
 
 
-## Método C5.0 com função treino
-```{r C5.0 com funcao treino, eval=FALSE}
+### Método C5.0 com função treino
+```{r C5.0 com funcao treino, echo=TRUE}
 
 ## C5.0 com funcao treino
 set.seed(123)
@@ -466,7 +471,7 @@ Matriz de confusão do método C5.0 com funcao treino:
     Column Total |       729 |      2930 |      3659 | 
     -------------|-----------|-----------|-----------|
 
-## Método C5.0 with adaptative boosting
+### Método C5.0 with adaptative boosting
 ```{r C5.0 with adaptative boosting, eval=FALSE}
 
 ## C5.0 with adaptative boosting
@@ -554,9 +559,8 @@ Matriz de confusão do método C5.0 com matriz de custos:
     -------------|-----------|-----------|-----------|
 
 
-## Método Naive Bayes
+### Método Naive Bayes
 ```{r Naive Bayes, eval=FALSE}
-####################################################################################################################################################################
 
 ## Naive Bayes
 
@@ -574,7 +578,6 @@ Bayespred <- predict(Bayesmodel,tstSet)
 results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,Bayespred,"Naive Bayes"))
 results.df
 
-####################################################################################################################################################################
 ```
 
 Matriz de confusão do método Naive Bayes:
@@ -592,7 +595,7 @@ Matriz de confusão do método Naive Bayes:
     -------------|-----------|-----------|-----------|
 
 
-## Método Random Forest
+### Método Random Forest
 ```{r Random Forest, eval=FALSE}
 
 
@@ -643,7 +646,7 @@ Matriz de confusão do método Random Forest:
     -------------|-----------|-----------|-----------|
 
 
-## Método Logistic regression
+### Método Logistic regression
 ```{r Logistic Regression, eval=FALSE}
 
 set.seed(123)
@@ -679,7 +682,7 @@ Matriz de confusão do método Logistic regression:
     Column Total |       575 |      3084 |      3659 | 
     -------------|-----------|-----------|-----------|
 
-## Método K-Nearest neighbours
+### Método K-Nearest neighbours
 ```{r K-Nearest neighbours, eval=FALSE}
 set.seed(123)
 
@@ -712,7 +715,7 @@ Matriz de confusão do método K-Nearest neighbours:
     Column Total |       892 |      2767 |      3659 | 
     -------------|-----------|-----------|-----------|
 
-## Método Support Vector Machine (SVM) LINEAR
+### Método Support Vector Machine (SVM) LINEAR
 ```{r Support Vector Machine (SVM) LINEAR, eval=FALSE}
 set.seed(123)
 
@@ -732,7 +735,7 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,svpred,"Support Ve
 results.df
 ```
 
-## Método Support Vector Machine (SVM) RADIAL
+### Método Support Vector Machine (SVM) RADIAL
 ```{r Support Vector Machine (SVM) RADIAL, eval=FALSE}
 set.seed(123)
 
@@ -754,7 +757,7 @@ results.df <- rbind(results.df,allcrosstabmeasures(test_Labels,svpredradial,"Sup
 results.df
 ```
 
-## Método neural network
+### Método neural network
 ```{r neural network, eval=FALSE}
 set.seed(123)
 
@@ -778,7 +781,7 @@ results.df <- rbind(results.df,allcrosstabmeasures(tst_labels,nnpred,"Neural net
 results.df
 ```
 
-##Análise do resultado dos modelos de classificação.
+##5.Análise do resultado dos modelos de classificação.
 
 **True positive** e **true negative** são as observacões que foram corretamente previstas. a ideia aqui é minimizar os "false positive" e os "false negative", sendo que o mais importante é reduzir o risco de perder negócio com a classificação errada, com a identificação de clientes que não iriam responder à campanha quando o resultado era na realidade positivo.
 
@@ -824,7 +827,7 @@ Resultados obtidos correndo os algoritmos classificação:
               K-Nearest neighbours    0.670     0.281     0.226       0.251 0.042   0.235
                     Neural network    0.654     0.328     0.231       0.271 0.053   0.267
 
-##Avaliação dos modelos
+### Avaliação dos modelos
 
 Devido ao grande desbalanceamento dos dados podemos observar que os valor obtidos de nas medidas de análise são muito baixos.
 
@@ -841,7 +844,7 @@ Nesta avaliação os métodos de classificação o método que apresentou melhores res
 Apesar de não ser o método que apresentou a melhor *accuracy*, foi o que mostrou melhores resultados no *score f1*, que será a variável mais interessante no caso dos dados aqui analisados.
 
 
-```{r Avaliacao dos modelos}
+```{r Avaliacao dos modelos, echo=TRUE}
 
 results.df
 
@@ -870,9 +873,11 @@ results.df[order(results.df$accuracy, decreasing= TRUE),]
 
 ```
 
-###### SEGUNDA CLASSIFICAcaO ######
 
-## Para uma segunda classificação dos clientes, forma usados os dados do *score RFM*, em que estes dados númericos forma convertidos para fatores de acordo com uma regra definida abaixo.
+
+###### SEGUNDA CLASSIFICAÇÃO ######
+
+##7. Para uma segunda classificação dos clientes, forma usados os dados do *score RFM*, em que estes dados númericos forma convertidos para fatores de acordo com uma regra definida abaixo.
 
 Ao categoriazar os clientes pelo valor de RFM atribuido, podemos tentar prever o tipo dos clientes novos. 
 
@@ -953,9 +958,9 @@ ncols <- dim(trainSet)[2]
 ctrl <- trainControl(method = "cv", number = 10)
 ```
 
+##8. Algoritmos de classificação para segunda classificação
 
-
-Método de classificação C5.0
+### Método de classificação C5.0
 ```{r C5.0  segunda classificacao, eval=FALSE}
 set.seed(123)
 
@@ -971,7 +976,25 @@ results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,C5Predict,
 results.new_df
 ```
 
-Método de classificação C5.0 com adpatative boosting
+
+Matriz de confusão do método de classificação C5.0
+
+                 | Predicted 
+            Real |     Frequent |      Regular | Sporadically |    Row Total | 
+    -------------|--------------|--------------|--------------|--------------|
+        Frequent |          160 |          416 |          408 |          984 | 
+                 |        0.044 |        0.114 |        0.112 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+         Regular |          220 |          589 |          554 |         1363 | 
+                 |        0.060 |        0.161 |        0.151 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Sporadically |          193 |          541 |          577 |         1311 | 
+                 |        0.053 |        0.148 |        0.158 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Column Total |          573 |         1546 |         1539 |         3658 | 
+    -------------|--------------|--------------|--------------|--------------|
+
+### Método de classificação C5.0 com adpatative boosting
 ```{r C5.0 with adaptative boosting segunda classificacao, eval=FALSE}
 set.seed(123)
 
@@ -986,9 +1009,25 @@ results.new_df
 ```
 
 
-Método de classificação Naive Bayes.
+Matriz de confusão do método de classificação C5.0 com adpatative boosting
+
+                 | Predicted 
+            Real |     Frequent |      Regular | Sporadically |    Row Total | 
+    -------------|--------------|--------------|--------------|--------------|
+        Frequent |          160 |          416 |          408 |          984 | 
+                 |        0.044 |        0.114 |        0.112 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+         Regular |          220 |          589 |          554 |         1363 | 
+                 |        0.060 |        0.161 |        0.151 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Sporadically |          193 |          541 |          577 |         1311 | 
+                 |        0.053 |        0.148 |        0.158 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Column Total |          573 |         1546 |         1539 |         3658 | 
+    -------------|--------------|--------------|--------------|--------------|
+
+### Método de classificação Naive Bayes.
 ```{r Naive Bayes segunda classificacao, eval=FALSE}
-####################################################################################################################################################################
 
 ## Naive Bayes
 
@@ -996,7 +1035,7 @@ set.seed(123)
 
 Bayesmodel <-train(rfm_score_cat~.,data = trainSet,
                     method = "nb",
-                    tuneGrid = data.frame(fL=1,usekernel=FALSE,adjust=1),
+                    tuneGrid = data.frame(fL=0,usekernel=FALSE,adjust=1),
                     trControl = ctrl)
 
 Bayespred <- predict(Bayesmodel,tstSet)
@@ -1004,10 +1043,25 @@ Bayespred <- predict(Bayesmodel,tstSet)
 results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,Bayespred,"Naive Bayes"))
 results.new_df
 
-####################################################################################################################################################################
 ```
 
-Método de classificação K-Nearest neighbours.
+Matriz de confusão do método de classificação C5.0 com Naive Bayes.
+                 | Predicted 
+            Real |     Frequent |      Regular | Sporadically |    Row Total | 
+    -------------|--------------|--------------|--------------|--------------|
+        Frequent |            0 |          434 |          550 |          984 | 
+                 |        0.000 |        0.119 |        0.150 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+         Regular |            0 |          565 |          798 |         1363 | 
+                 |        0.000 |        0.154 |        0.218 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Sporadically |            1 |          524 |          786 |         1311 | 
+                 |        0.000 |        0.143 |        0.215 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Column Total |            1 |         1523 |         2134 |         3658 | 
+    -------------|--------------|--------------|--------------|--------------|
+
+### Método de classificação K-Nearest neighbours.
 ```{r K-Nearest neighbours segunda classificacao, eval=FALSE}
 set.seed(123)
 
@@ -1016,7 +1070,7 @@ knnmodel <- train(rfm_score_cat~.,
                   method = 'knn',
                   tuneGrid = expand.grid(k = seq(1,100,2)),
                   metric = 'Accuracy',
-                  trControl = crtl)
+                  trControl = ctrl)
 
 knnpred <- predict(knnmodel,newdata = tstSet, type = "raw")
 table(knnpred)
@@ -1025,8 +1079,24 @@ results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,knnpred,"K
 results.new_df
 ```
 
+Matriz de confusão do método de classificação K-Nearest neighbours.
 
-Método de classificação Suport Vector Machine com o method Radial.
+                 | Predicted 
+            Real |     Frequent |      Regular | Sporadically |    Row Total | 
+    -------------|--------------|--------------|--------------|--------------|
+        Frequent |           22 |          512 |          450 |          984 | 
+                 |        0.006 |        0.140 |        0.123 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+         Regular |           44 |          683 |          636 |         1363 | 
+                 |        0.012 |        0.187 |        0.174 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Sporadically |           41 |          621 |          649 |         1311 | 
+                 |        0.011 |        0.170 |        0.177 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Column Total |          107 |         1816 |         1735 |         3658 | 
+    -------------|--------------|--------------|--------------|--------------|
+
+### Método de classificação Suport Vector Machine com o method Radial.
 ```{r Support Vector Machine (SVM) RADIAL segunda classificacao, eval=FALSE}
 set.seed(123)
 grid <- expand.grid(sigma = c(.01,.015, 0.2), C = c(0.75, 0.9, 1,1.1,1.25))
@@ -1037,7 +1107,7 @@ svmodelradial <- train(rfm_score_cat~.,
                  metric = 'Accuracy',
                  maximize = FALSE,
                  tuneGrid = grid,
-                 trControl = crtl)
+                 trControl = ctrl)
 
 svpredradial <- predict(svmodelradial,newdata = tstSet)
 table(svpredradial)
@@ -1046,20 +1116,51 @@ results.new_df <- rbind(results.new_df,allcrosstabmeasures(tst_labels,svpredradi
 results.new_df
 ```
 
+
+Matriz de confusão do método de classificação Suport Vector Machine com o method Radial.
+
+                 | Predicted 
+            Real |     Frequent |      Regular | Sporadically |    Row Total | 
+    -------------|--------------|--------------|--------------|--------------|
+        Frequent |           76 |          478 |          430 |          984 | 
+                 |        0.021 |        0.131 |        0.118 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+         Regular |          112 |          651 |          600 |         1363 | 
+                 |        0.031 |        0.178 |        0.164 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Sporadically |          104 |          619 |          588 |         1311 | 
+                 |        0.028 |        0.169 |        0.161 |              | 
+    -------------|--------------|--------------|--------------|--------------|
+    Column Total |          292 |         1748 |         1618 |         3658 | 
+    -------------|--------------|--------------|--------------|--------------|
+
 Com os métodos Neural Network e Support Vector Machine (SVM) LINEAR, não foi possível classificar pois nunca foi capaz de prever o atributo do tipo frequente, logo não consideramos na nossa análise.
-
-
 
 
 ## Avaliacao dos modelos para previsao do atributo de cliente baseado no RFM.
 
-                                    model    accuracy recall    precision   f1    kappa   fpr
-                            C5.0 Classif.    0.376    0.103     0.308       0.154 0.248   0.097
-            C5.0 with adaptative boosting    0.376    0.103     0.308       0.154 0.248   0.097
-                              Naive Bayes    0.379    0.004     0.174       0.008 0.251   0.010
-                     K-Nearest neighbours    0.374    0.044     0.289       0.076 0.223   0.044
-    Support Vector Machine (SVM) - Radial    0.364    0.064     0.260       0.103 0.203   0.071
+                                      model   accuracy  recall    precision   f1    kappa   fpr
+                              C5.0 Classif.   0.362     0.163     0.279       0.206 0.204   0.161
+             C5.0 with adaptative boosting    0.362     0.163     0.279       0.206 0.204   0.161
+                               Naive Bayes    0.369     0.000     0.000       0.000 0.253   0.000
+                      K-Nearest neighbours    0.370     0.022     0.206       0.040 0.220   0.032
+     Support Vector Machine (SVM) - Radial    0.359     0.077     0.260       0.119 0.200   0.082
 
+### Avaliação dos modelos
+
+Devido ao grande desbalanceamento dos dados podemos observar que os valor obtidos de nas medidas de análise são muito baixos, mais baixos do que na primeira análise.
+
+. A medida de *accuracy* encontra-se entre os 36% e 38%
+. A medida de *recall* encontra-se entre os 0,0% e 16%
+. A medida de *precision* encontra-se entre os 0,0% e 28%
+. A medida de *f1* encontra-se entre os 0,0% e 20%
+
+Nesta avaliação os métodos de classificação o método que apresentou melhores resultados foi o:
+
+                              model    accuracy  recall    precision   f1    kappa   fpr
+      C5.0 with adaptative boosting    0.362     0.163     0.279       0.206 0.204   0.161
+                   
+Apesar de não ser o método que apresentou a melhor *accuracy*, foi o que mostrou melhores resultados no *score f1*, que será a variável mais interessante no caso dos dados aqui analisados.
 
 
 ## References
