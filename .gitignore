@@ -2,9 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-script_prediction_files
-script_prediction.html
-script_prediction.pdf
 script_prediction.knit.md
 script_prediction.tex
 script_prediction.utf8.md

@@ -374,7 +374,7 @@ ctrl <- trainControl(method = "cv", number = 10)
 ##4. Algoritmos de classificação
 
 ### Método de classificação C5.0
-```{r C5.0, eval=FALSE}
+```{r C5.0, eval=FALSE, warning=FALSE}
 set.seed(123)
 
 modelLookup(model = "C5.0") # Função para verificar as possibilidades do modelo
@@ -420,7 +420,7 @@ A matriz de confusão que nos permite ter acesso às medidas de avaliação dos mode
 
 
 ### Método C5.0 com função treino
-```{r C5.0 com funcao treino, echo=TRUE}
+```{r C5.0 com funcao treino, echo=TRUE, warning=FALSE}
 
 ## C5.0 com funcao treino
 set.seed(123)
@@ -439,7 +439,7 @@ C5model
 ```
 
 
-```{r C5.0 com funcao treino Winnow}
+```{r C5.0 com funcao treino Winnow, warning=FALSE}
 
 trellis.par.set(caretTheme())
 plot(C5model)
@@ -844,11 +844,11 @@ Nesta avaliação os métodos de classificação o método que apresentou melhores res
 Apesar de não ser o método que apresentou a melhor *accuracy*, foi o que mostrou melhores resultados no *score f1*, que será a variável mais interessante no caso dos dados aqui analisados.
 
 
-```{r Avaliacao dos modelos, echo=TRUE}
+```{r Avaliacao dos modelos, eval=FALSE, warning=FALSE, include=FALSE}
 
 results.df
 
-barplot(results.df$f1, col = c(1:9), main = "Avaliacao F1", ylim = c(0,0.60))
+barplot(results.df$f1, col = c(1:9), main = "Avaliacao F1", ylim = c(0,0.60), xlim = c(0,10))
 legend("topright", levels(results.df$model), bty = "n", fill = c(1:length(results.df$model)))
 
 barplot(results.df$precision, col = c(1:9), main = "Avaliacao Precision", ylim = c(0,0.60))
@@ -1046,6 +1046,7 @@ results.new_df
 ```
 
 Matriz de confusão do método de classificação C5.0 com Naive Bayes.
+
                  | Predicted 
             Real |     Frequent |      Regular | Sporadically |    Row Total | 
     -------------|--------------|--------------|--------------|--------------|
