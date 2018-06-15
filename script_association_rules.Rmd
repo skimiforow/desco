@@ -28,14 +28,17 @@ library(plyr)
 library(dplyr)
 library(ggplot2)
 library(forcats)
+library(klaR)
+library(arules)
+library(arulesViz)
 
 ```
 
-Neste documento descreve-se a criação de modelos para identificar perfis de grupos de clientes, com o objetivo de efetuar recomendações dos produtos mais adequados para cada grupo de clientes.
+Neste documento pretende-se adquirir um melhor conhecimento sobre os perfis de grupos de clientes. Com esta informação, o objetivo final é a recomendação dos artigos mais indicados a cada grupo de clientes.
 
 #1. Exploração e preparação dos dados
 
-Para o cálculo do valor de RFM dos clientes, foi efetuado tratamento dos dados das tabelas **TRANSACTION.dat**, **TRANSACTION_ITEM.dat** e **CARD.DAT**, idêntico ao realizado para a previsão de resposta a campanhas.
+Para o cálculo do valor de RFM dos clientes, foi efetuado tratamento dos dados das tabelas **TRANSACTION.dat**, **TRANSACTION_ITEM.dat** e **CARD.DAT**, idêntico ao realizado para a previsão de resposta a campanhas. Detalhes sobre a utilização do algoritmo RFM são descritos na outra parte do trabalho.
 
 ```{r Cálculo de valor de RFM para os clientes, include = FALSE}
 keycols <- c('Store', 'Date', 'Time', 'TransactionID')
@@ -134,7 +137,7 @@ df_customers$rfm_score_cat <- as.factor(df_customers$rfm_score_cat)
 
 ```
 
-Foi criada uma categoria para dividir os clientes por intervalos de idades. Os intervalos considerados foram: menor de 50 anos, maior ou igual a 50 e menor de 65 anos, maior ou igual a 65 anos.
+Ao conjunto de dados resultante, foi adicionado uma categoria para dividir os clientes por intervalos de idades. Os intervalos considerados foram: menor de 50 anos, maior ou igual a 50 e menor de 65 anos, maior ou igual a 65 anos.
 ```{r }
 df_customers$ageInterval <- cut(df_customers$age, 
                       breaks = c(0, 50, 65, +Inf), 
@@ -148,17 +151,10 @@ summary(df_customers)
 ```
 
 
+Para a criação dos *clusters*, foi criado um conjunto de dados com os atributos mais relevantes. A variável 'CardID' é mantida para permitir a identifição das transações após a criação, mas não é utilizado para aquando da criação dos *clusters
 ```{r}
-
-summary(df_customers$clientYears)
-# Amplitude de clientYears é pequena.
-
-# CardID é mantido para permitir a identificação das transações depois
-# da criação dos clusters; no entanto, não é utilizado para a criação dos clusters
-
 dataCustomers <- df_customers[, c("CardID", "Region", "Gender", "MaritalStatus", "HasChildren", 
                                    "rfm_score_cat", "clientYears", "age", "ageInterval")]
-
 
 with(dataCustomers,
   plot( ageInterval, rfm_score_cat, xlab = "Age", ylab = "RFM Score")
@@ -166,10 +162,12 @@ with(dataCustomers,
 
 ```
 
-# Clustering
+# 2. Clustering
 
+Como a maioria dos atributos do conjunto de dados são categóricos e o algoritmo **k-means** não é diretamente aplicável a este tipo de dados, é necessário recorrer a outros tipos de algoritmos. Após pesquisa, encontramos algumas soluções que a seguir se descrevem. No entanto, apenas com o algoritmo **k-modes** foi utilizado a totalidade do conjunto de dados.
+
+```{r include = FALSE}
 ## Determine Best Number of Clusters in Customers Data Set
-```{r}
 #library(NbClust)
 #library(cluster)
 
@@ -182,61 +180,110 @@ with(dataCustomers,
 ```
 
 
-##Model-based Clustering
+## Model-based Clustering
+
+**VarSelLCM** é um *package* que implementa *clustering* baseado em modelos (deteção das características relevantes e seleção do número de *clusters*), recorrendo a critérios de informação. Dados podem ser compostos por valores contínuosm, inteiros ou numéricos [Ref. @Marbac2017].
+Para a criação do cluster, utilizaram-se os atributos 'age' e 'clientYears', que permitiram obter melhores resultados, pelo que não é utilizado o atributo 'ageInterval'.
+
 ```{r}
 library(VarSelLCM)
 set.seed(123)
 
-# without ageInterval
-out <- VarSelCluster(dataCustomers[1:1000, -c("CardID", "ageInterval")], gvals = 2, nbcores = 2)
+cluster.model_base <- VarSelCluster(dataCustomers[1:1000, -c("CardID", "ageInterval")], gvals = 3, nbcores = 2)
 
 #VarSelShiny(out)
+
+summary(cluster.model_base)
+
+# As variáveis mais discriminativas do modelo podem ser visualizadas 
+plot(cluster.model_base, type = "bar")
+
+# Por exemplo, a distribuição por cluster da variável HasChildren.
+plot(cluster.model_base, y = "clientYears", type = "boxplot")
+plot(cluster.model_base, y = "HasChildren", type = "boxplot")
+
+# Probabilidades de má classificação
+plot(cluster.model_base, type="probs-class")
+
 ```
+Analisando as duas variáveis mais discriminativas, pode-se verificar que no caso da variável 'clientYears', dois clusters pertencem à mesma gama de valors. No caso da variável 'HasChildren', também se verifica que dois clusters não têm dissemelhança significativa.
 
 
-## Hierarchical Clustering
+## Clustering hierárquico
+
+Novamente, como a maioria dos atributos não são númericos, é necessário utilizar uma métrica que seja adequada a estes dados. Uma possibilidade é a utilização da métrica de Gower [Ref. @Martin]. A função 'daisy()' do package 'cluster' contem uma implementação desta métrica.
+Para o calculo da matriz de distância não foram utilizados os atributos 'age' e 'clientYears'.
+De notar que a utilização desta métrica obriga a manter uma matriz NxN em memória, o que muito rapidamente se torna significativo, pelo que apenas consideramos um subconjunto dos dados.  
+
 ```{r}
-
-#clusters <- hclust(dist(data[, 5]))
-#plot(clusters)
-#clusterCut <- cutree(clusters, 3)
 
 library(cluster)
 set.seed(123)
 
-# without clientYears and age
-gower.dist <- daisy(dataCustomers[1:500, -c("CardID", "clientYears", "age")], metric = "gower")
+gower.dist <- daisy(dataCustomers[1:2000, -c("CardID", "clientYears", "age")], metric = "gower")
 summary(gower.dist)
 
 gower.mat <- as.matrix(gower.dist)
 
 
-# Most similar pair
+# Par mais "semelhante"
 dataCustomers[
   which(gower.mat == min(gower.mat[gower.mat != min(gower.mat)]),
         arr.ind = TRUE)[1, ], ]
 
-# Most dissimilar pair
+# Par menos "semelhante"
 dataCustomers[
   which(gower.mat == max(gower.mat[gower.mat != max(gower.mat)]),
         arr.ind = TRUE)[1, ], ]
 
 
-# Divisive (DIANA)
-divisive.clust <- diana(as.matrix(gower.dist), 
-                  diss = TRUE, keep.diss = TRUE)
+# Clustering hierárquico "divisivo"" (DIANA)
+divisive.clust <- diana(as.matrix(gower.dist), diss = TRUE, keep.diss = TRUE)
 
-plot(divisive.clust, main = "Divisive")
+plot(divisive.clust, main = "Divisivo")
 
-# Agglomerative (AGNES)
+```
+
+```{r include = FALSE}
+#A gglomerative (AGNES)
+#a gglomerative.clust <- agnes(as.matrix(gower.dist), diss = TRUE, keep.diss = TRUE)
+
+#p lot(agglomerative.clust, main = "Aglomerativo")
+```
+
+
+```{r}
+# Clustering PAM (Partition around medoids)
+sil_width <- c(NA)
+
+for(i in 2:10) {
+  
+  pam_fit <- pam(gower.dist, diss = TRUE, k = i)
+  
+  sil_width[i] <- pam_fit$silinfo$avg.width
+}
+
+# Plot sihouette width (higher is better)
+
+plot(1:10, sil_width, xlab = "Número de clusters", ylab = "Silhouette Width")
+lines(1:10, sil_width)
+```
+
+Considerando este subconjunto de dados, constituído por 2000 observações, o número recomendado de clusters seria 10:
+```{r Interpretação dos Clusters}
+# ver https://www.r-bloggers.com/clustering-mixed-data-types-in-r/
+
+pam_fit <- pam(gower.dist, diss = TRUE, k = 10)
+
+dataCustomers[pam_fit$medoids, ]
+
 
 ```
 
 
-## Categorial clustering with k-modes algorithm
+## Clustering com o algoritmo k-modes
+*k-modes* é uma variante do *k-means* que é aplicável a dados categóricos [Ref. @Huang1998].
 ```{r}
-
-library(klaR)
 
 set.seed(123)
 
@@ -252,13 +299,14 @@ clusters <- split(dataCustomers, dataCustomers$cluster)
 
 ```
 
-
 ### Visualize differences between clusters
-```{r}
+```{r include = FALSE}
 dataCustomers[, .N, by = .(cluster, Gender)][order(cluster, Gender)]
 dataCustomers[, .N, by = .(cluster, Region)][order(cluster, Region)]
 dataCustomers[, .N, by = .(cluster, rfm_score_cat)][order(cluster, rfm_score_cat)]
+```
 
+```{r}
 barplot(table(dataCustomers$Region, dataCustomers$cluster),
         beside = T, col = c("red", "green"),
         main = "Region by cluster")
@@ -317,7 +365,10 @@ round(prop.table(table(dataCustomers.cl3$ageInterval))*100, digits = 2)
 ```
 
 
-## Clustering by RFM Score
+## Clustering por valor de RFM
+Depois de analisados os resultados de aplicação de diferentes algoritmos de *clustering* e atendendo a que os dados são muito desbalanceados, decidimos utilizar como clusters a divisão efetuada pela categorização do *RFM Score* efetuada anteriormente.
+
+
 ```{r}
 # Divide customers by its RFM Score
 rfm.clusters <- split(dataCustomers, dataCustomers$rfm_score_cat)
@@ -328,8 +379,13 @@ dataCustomers.rfmSporadically <- rfm.clusters$Sporadically
 ```
 
 
-## Dados das compras
-```{r}
+# 3. Produtos recomendados por cluster 
+
+## Processamento dos dados das transações
+
+Depois de efetuado o *clustering*, pretende-se agora efetuar o cálculo de regras de associação das transações efetuadas pelos clientes de cada grupo. Para isso, é necessário criar as observações correspondentes aos items e respetiva categorias e subcategorias.
+
+```{r include = FALSE}
 
 ## Tabela ITEM.dat
 items <- fread("DATA-CRM/ITEM.dat", quote = "'")
@@ -349,8 +405,9 @@ subcategories <- fread("DATA-CRM/SUBCATEGORY.dat", quote = "'")
 
 ```
 
+
+```{r include = FALSE}
 # Join com a tabela de transações + cardID
-```{r}
 
 result.aux <- merge(items, categories, all.x = TRUE, by = 'CategoryCode')
 result.aux <- merge(result.aux, subcategories, all.x = TRUE, by = 'SubCategoryCode')
@@ -360,10 +417,7 @@ result.purchases <- merge(result.transactions, result.aux[ ,c(3:5, 7:8)], all.x 
 # Se retirados 'ItemNumber' e 'TransactionID' passam a existir observações repetidas
 dataPurchases <- result.purchases[, c("CardID", "Date", "PaymentMethod", "Amount", "ItemDescription", "CategoryDescription", "SubCategoryDescription", "BrandCode", "ItemNumber", "TransactionID")]
 
-```
 
-
-```{r}
 dataPurchases$PaymentMethod <- as.factor(dataPurchases$PaymentMethod)
 dataPurchases$ItemDescription <- as.factor(dataPurchases$ItemDescription)
 dataPurchases$CategoryDescription <- as.factor(dataPurchases$CategoryDescription)
@@ -376,52 +430,97 @@ dataPurchases.cl1 <- merge(dataPurchases, dataCustomers.cl1[, c("CardID")], by =
 dataPurchases.cl2 <- merge(dataPurchases, dataCustomers.cl2[, c("CardID")], by = "CardID")
 dataPurchases.cl3 <- merge(dataPurchases, dataCustomers.cl3[, c("CardID")], by = "CardID")
 
-# Split dataPurchases by rfm clusters
-dataPurchases.rmfFrequent <- merge(dataPurchases, dataCustomers.rfmFrequent[, c("CardID")], by = "CardID")
+```
+
+
+Depois de processados estes dados, utilizando o particionamento dos clientes pelo *RFM Score* são obtidos os seguintes conjuntos de dados correspondendo a transações efetuadas dos membros de cada grupo.
+
+```{r}
+
+dataPurchases.rfmFrequent <- merge(dataPurchases, dataCustomers.rfmFrequent[, c("CardID")], by = "CardID")
 dataPurchases.rfmRegular <- merge(dataPurchases, dataCustomers.rfmRegular[, c("CardID")], by = "CardID")
 dataPurchases.rfmSporadically <- merge(dataPurchases, dataCustomers.rfmSporadically[, c("CardID")], by = "CardID")
 
 ```
 
+Decidimos utilizar para o cálculo das regras de associação as Subcategorias de produtos, pois, atendendo que existe um número muito elevado de produtos, as diferenças a esse nível não seriam estatisticamente relevantes.
 
-# Vendas por subcategorias de produtos
+## Vendas por subcategorias de produtos
+### Clientes do tipo Regular
 ```{r}
 
-# Frequência das subcategorias de produtos no cluster 1
-# ordenado por ordem descrescente
-sub_ord <- factor(dataPurchases.cl1$SubCategoryDescription,
-                  levels = rev(levels(fct_infreq(dataPurchases.cl1$SubCategoryDescription))))
+# Frequência das subcategorias de produtos no cluster ordenado por ordem descrescente
+sub_ord_r <- factor(dataPurchases.rfmRegular$SubCategoryDescription,
+                  levels = rev(levels(fct_infreq(dataPurchases.rfmRegular$SubCategoryDescription))))
 
-ggplot(as.data.frame(dataPurchases.cl1$SubCategoryDescription), aes(x = sub_ord)) +
-  geom_bar() + labs(x = "Sub Category", y = "Freq") + coord_flip()
+ggplot(as.data.frame(dataPurchases.rfmRegular$SubCategoryDescription), aes(x = sub_ord_r)) +
+  geom_bar() + labs(x = "Subcategoria de Produtos", y = "Freq") + labs(title = "Produtos por Clientes tipo 'Regular'") + coord_flip()
 
-# Alternativamente
+```
+
+
+```{r include = FALSE}
+# Alternativamente este gráfico pode ser obtido
 x <- as.data.frame(sort(
-  table(dataPurchases.cl1$SubCategoryDescription, dnn = c("SubCategory")), decreasing = F))
+  table(dataPurchases.rfmRegular$SubCategoryDescription, dnn = c("SubCategory")), decreasing = F))
 
 ggplot(x, aes(x = reorder(SubCategory, Freq), y = Freq)) +
   geom_bar(stat = 'identity') + labs(x = "Sub Category", y = "Freq") + coord_flip()
 
+```
+
+### Clientes do tipo Esporádico
+```{r}
+
+# Frequência das subcategorias de produtos no cluster ordenado por ordem descrescente
+sub_ord_s <- factor(dataPurchases.rfmSporadically$SubCategoryDescription,
+                  levels = rev(levels(fct_infreq(dataPurchases.rfmSporadically$SubCategoryDescription))))
+
+ggplot(as.data.frame(dataPurchases.rfmSporadically$SubCategoryDescription), aes(x = sub_ord_s)) +
+  geom_bar() + labs(x = "Subcategoria de Produtos", y = "Freq") + labs(title = "Produtos por Clientes tipo 'Esporádico'") + coord_flip()
+
+```
+
+### Clientes do tipo Frequente
+```{r}
+
+# Frequência das subcategorias de produtos no cluster ordenado por ordem descrescente
+sub_ord_f <- factor(dataPurchases.rfmFrequent$SubCategoryDescription,
+                  levels = rev(levels(fct_infreq(dataPurchases.rfmFrequent$SubCategoryDescription))))
+
+ggplot(as.data.frame(dataPurchases.rfmFrequent$SubCategoryDescription), aes(x = sub_ord_f)) +
+  geom_bar() + labs(x = "Subcategoria de Produtos", y = "Freq") + labs(title = "Produtos por Clientes tipo 'Frequente'") + coord_flip()
+
+```
 
 
-par(las = 2)
-par(mar = c(5, 12, 5, 2))
+Novamente se observa que os clusters apresentam similitudes, por exemplo, as subcategorias menos compradas são comuns aos três grupos. A subcategoria mais comprada pelos clientes dos tipos esporádico e regular é a mesma (Personal).
 
-plot(dataPurchases.cl1$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
-plot(dataPurchases.cl2$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
-plot(dataPurchases.cl3$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
 
-plot(dataPurchases.rfmRegular$SubCategoryDescription, col=rainbow(11))
-plot(dataPurchases.rmfFrequent$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+```{r include = FALSE}
+
+plot(dataPurchases.rfmRegular$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.rfmFrequent$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
 plot(dataPurchases.rfmSporadically$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+```
+
+
+
+
+## Análise do Cluster Clientes Tipo Regular
+### Caraterização
+
+Tal como nos restantes clusters, existem transações de todas as subcategorias de produtos.
+```{r}
 
 # Todas as subcategorias de produtos
-levels(dataPurchases$SubCategoryDescription)
+levels(dataPurchases.rfmRegular$SubCategoryDescription)
 
 # Número de vendas por subcategorias
-baskets.subcat <- count(dataPurchases, c("dataPurchases$SubCategoryDescription"))
-baskets.subcat <- baskets.subcat[order(-baskets.subcat$freq), ]
+baskets.subcat <- plyr::count(dataPurchases.rfmRegular, c("dataPurchases$SubCategoryDescription"))
 colnames(baskets.subcat) <- c("subcategory", "freq")
+
+baskets.subcat <- baskets.subcat[order(-baskets.subcat$freq), ]
 
 length(unique(baskets.subcat$subcategory))       # 47 subcategorias 
 
@@ -430,8 +529,271 @@ summary(baskets.subcat$freq)
 
 ```
 
-# Vendas por categorias de produtos
+
+### Visualização dos cinco primeiros cestos
 ```{r}
+
+basket <- as(split(as.vector(dataPurchases.rfmFrequent$SubCategoryDescription), as.vector(dataPurchases.rfmRegular$CardID)), "transactions")
+
+class(basket)
+summary(basket)
+dim(basket)
+
+basket@itemInfo   # gives all the items of the basket
+
+inspect(basket[1:5])
+
+```
+
+
+```{r}
+# Suporte de cada item
+itemFreq <- itemFrequency(basket)
+
+# Produtos com mais suport3
+sort(itemFreq, decreasing = T)[1:3]
+summary(itemFreq)
+
+
+# Produtos com suport superior a 20%
+with(s <- 0.20,
+  itemFrequencyPlot(basket, support = s)
+)
+
+```
+
+Verifica-se que existem 8 produtos com suporte superior a 20%.
+
+
+### Visualização da matriz de produtos comprados e respetiva dispersão.
+```{r}
+#image(basket[1:50])
+image(sample(basket, 50)) # 50 linhas
+```
+
+#Algoritmo Apriori para extração de Regras de Associação 
+```{r}
+sup.min = 0.10
+conf.min = 0.60
+
+basketRules <- apriori(basket, parameter = list(support = sup.min, confidence = conf.min, minlen = 2))
+summary(basketRules)
+```
+
+```{r}
+measures <- interestMeasure(basketRules, measure = c("coverage", "leverage", "conviction"), transactions = basket)
+
+summary(measures)
+
+
+# Top rules by lift
+inspect(head(basketRules, n = 5, by = "lift"))
+
+```
+
+
+```{r}
+
+basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2, maxlen = 20))
+
+summary(basketRules2)
+
+#plot rules with confidence on the y-axis
+plot(basketRules2, measure = c("support", "confidence"), shading = "lift")
+
+#plot rules with lift on the y-axis
+plot(basketRules2, measure = c("support", "lift"), shading = "confidence")
+
+#plot rules by number of items
+plot(basketRules2, control = list(main = "Two-key plot"), shading = "order")
+
+```
+
+
+
+## Análise do Cluster Clientes Tipo Esporádico
+### Caraterização
+
+```{r}
+
+# Todas as subcategorias de produtos
+levels(dataPurchases.rfmSporadically$SubCategoryDescription)
+
+# Número de vendas por subcategorias
+baskets.subcat <- plyr::count(dataPurchases.rfmSporadically, c("dataPurchases$SubCategoryDescription"))
+colnames(baskets.subcat) <- c("subcategory", "freq")
+
+baskets.subcat <- baskets.subcat[order(-baskets.subcat$freq), ]
+
+length(unique(baskets.subcat$subcategory))       # 47 subcategorias 
+
+# Número médio de itens por basket (subcategoria)
+summary(baskets.subcat$freq)
+
+```
+
+
+### Visualização dos cinco primeiros cestos
+```{r}
+
+basket <- as(split(as.vector(dataPurchases.rfmSporadically$SubCategoryDescription), as.vector(dataPurchases.rfmSporadically$CardID)), "transactions")
+
+inspect(basket[1:5])
+
+```
+
+
+```{r}
+# Suporte de cada item
+itemFreq <- itemFrequency(basket)
+
+# Produtos com mais suporte
+sort(itemFreq, decreasing = T)[1:3]
+summary(itemFreq)
+
+
+# Produtos com suport superior a 20%
+with(s <- 0.20,
+  itemFrequencyPlot(basket, support = s)
+)
+```
+
+Existem apenas três produtos com suporte superior a 20%, o que se não será surpreendente neste tipo de clientes.
+
+### Algoritmo Apriori para extração de Regras de Associação 
+```{r}
+sup.min = 0.05
+conf.min = 0.60
+
+basketRules <- apriori(basket, parameter = list(support = sup.min, confidence = conf.min, minlen = 2))
+summary(basketRules)
+```
+
+```{r}
+measures <- interestMeasure(basketRules, measure = c("coverage", "leverage", "conviction"), transactions = basket)
+
+summary(measures)
+
+# Top rules by lift
+inspect(head(basketRules, n = 5, by = "lift"))
+
+```
+
+
+```{r}
+
+basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2, maxlen = 20))
+
+summary(basketRules2)
+
+#plot rules with confidence on the y-axis
+plot(basketRules2, measure = c("support", "confidence"), shading = "lift")
+
+#plot rules with lift on the y-axis
+plot(basketRules2, measure = c("support", "lift"), shading = "confidence")
+
+#plot rules by number of items
+plot(basketRules2, control = list(main = "Two-key plot"), shading = "order")
+
+```
+
+
+
+## Análise do Cluster Clientes Tipo Frequente
+### Caraterização
+
+```{r}
+
+# Todas as subcategorias de produtos
+levels(dataPurchases.rfmFrequent$SubCategoryDescription)
+
+# Número de vendas por subcategorias
+baskets.subcat <- plyr::count(dataPurchases.rfmFrequent, c("dataPurchases$SubCategoryDescription"))
+colnames(baskets.subcat) <- c("subcategory", "freq")
+
+baskets.subcat <- baskets.subcat[order(-baskets.subcat$freq), ]
+
+length(unique(baskets.subcat$subcategory))       # 47 subcategorias 
+
+# Número médio de itens por basket (subcategoria)
+summary(baskets.subcat$freq)
+
+```
+
+
+### Visualização dos cinco primeiros cestos
+```{r}
+
+basket <- as(split(as.vector(dataPurchases.rfmFrequent$SubCategoryDescription), as.vector(dataPurchases.rfmFrequent$CardID)), "transactions")
+
+inspect(basket[1:5])
+
+```
+
+
+```{r}
+# Suporte de cada item
+itemFreq <- itemFrequency(basket)
+
+# Produtos com mais suporte
+sort(itemFreq, decreasing = T)[1:3]
+summary(itemFreq)
+
+
+# Produtos com suport superior a 20%
+with(s <- 0.20,
+  itemFrequencyPlot(basket, support = s)
+)
+```
+
+Como seria expectável, o número de suportes com suporte a 20% (16) é superior ao dos outros grupos.
+
+###Algoritmo Apriori para extração de Regras de Associação 
+```{r}
+sup.min = 0.20
+conf.min = 0.80
+
+basketRules <- apriori(basket, parameter = list(support = sup.min, confidence = conf.min, minlen = 2))
+summary(basketRules)
+```
+
+```{r}
+measures <- interestMeasure(basketRules, measure = c("coverage", "leverage", "conviction"), transactions = basket)
+
+summary(measures)
+
+# Top rules by lift
+inspect(head(basketRules, n = 5, by = "lift"))
+
+```
+
+
+```{r}
+
+basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2, maxlen = 20))
+
+summary(basketRules2)
+
+#plot rules with confidence on the y-axis
+plot(basketRules2, measure = c("support", "confidence"), shading = "lift")
+
+#plot rules with lift on the y-axis
+plot(basketRules2, measure = c("support", "lift"), shading = "confidence")
+
+#plot rules by number of items
+plot(basketRules2, control = list(main = "Two-key plot"), shading = "order")
+
+```
+
+
+# Conclusão
+Os dados de origem utilizados não permitem obter resultados muito satisfatórios, visto que estes não permitem a criação de clusters suficientemente distintos entre si, dificultado ainda pela presença de dados categórios. 
+Os agrupamentos criados com base no *RFM Score* sofrem também deste problema. No entanto, um resultado que está de acordo com esta escolha é a quantidade de produtos com suporte mínimo mais elevado. Por exemplo, com suporte mínimo de 20%, o clusters dos clientes do tipo frequente tem o dobro do que o cluster de clientes do tipo regular.
+
+
+
+```{r include = FALSE}
+## Vendas por categorias de produtos
 plot(dataPurchases$CategoryDescription, col=rainbow(11))
 
 boxplot( Amount ~ CategoryDescription, data = dataPurchases, main = "Valor das Vendas por Categoria", col = rainbow(11), outline = TRUE)
@@ -457,71 +819,3 @@ summary(baskets.cat$freq)
 
 ```
 
-```{r}
-library(arules)
-
-basket <- as(split(as.vector(dataPurchases$SubCategoryDescription), as.vector(dataPurchases$CardID)), "transactions")
-
-class(basket)
-summary(basket)
-dim(basket)
-
-basket@itemInfo   # gives all the items of the basket
-
-#View the first five transactions
-inspect(basket[1:5])
-
-```
-
-
-```{r}
-# Occurrences of each item - Support
-itemFreq <- itemFrequency(basket)
-
-sort(itemFreq, decreasing = T)[1:3]
-summary(itemFreq)
-
-#View the frequency of the first three items
-itemFrequency(basket[, 1:3])
-
-#Shows in a histogram plot items with at least s support
-with(s <- 0.20,
-  itemFrequencyPlot(basket, support = s)
-)
-```
-
-#Visualização da matriz de produtos comprados e respetiva dispersão.
-```{r}
-#image(basket[1:50])
-image(sample(basket, 50)) # 50 linhas
-```
-
-#Algoritmo Apriori para extração de Regras de Associação 
-#Sup min = 5% e Conf min = 80%
-```{r}
-sup.min = 0.05
-conf.min = 0.80
-
-basketRules <- apriori(basket, parameter = list(support = sup.min, confidence = conf.min, minlen = 2))
-summary(basketRules)
-```
-
-```{r}
-measures <- interestMeasure(basketRules, measure = c("coverage", "leverage", "conviction"), transactions = basket)
-
-summary(measures)
-
-
-# Top rules by lift
-inspect(head(basketRules, n = 5, by = "lift"))
-
-```
-
-
-```{r}
-library(arulesViz)
-
-basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2, maxlen = 20))
-
-summary(basketRules2)
-```
