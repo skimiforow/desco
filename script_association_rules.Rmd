@@ -2,40 +2,42 @@
 title: "DESCO - Knowledge Discovery - Association Rules"
 author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
 date: "5/3/2018"
-output: html_document
-editor_options: 
+output:
+  pdf_document: default
+  editor_options: null
+  html_document: default
   chunk_output_type: console
+bibliography: bibliography.bib
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r Setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 ```
 
-#Limpeza do ambiente
 
-```{r Clean Environment, include=FALSE}
+```{r Limpeza das variáveis de ambiente, include = FALSE}
 rm(list = ls())
 ```
 
-#Bibliotecas necessárias
-```{r}
 
+```{r Bibliotecas necessarias, include=FALSE}
 library(data.table)
 library(rfm)
 library(lubridate)
+library(plyr)
 library(dplyr)
 library(ggplot2)
 library(forcats)
 
 ```
 
+Neste documento descreve-se a criação de modelos para identificar perfis de grupos de clientes, com o objetivo de efetuar recomendações dos produtos mais adequados para cada grupo de clientes.
 
-#Carregamento das tabelas de transações
+#1. Exploração e preparação dos dados
 
-The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].
+Para o cálculo do valor de RFM dos clientes, foi efetuado tratamento dos dados das tabelas **TRANSACTION.dat**, **TRANSACTION_ITEM.dat** e **CARD.DAT**, idêntico ao realizado para a previsão de resposta a campanhas.
 
-Loading of the tables to create model RFM
-```{r Carregamento}
+```{r Cálculo de valor de RFM para os clientes, include = FALSE}
 keycols <- c('Store', 'Date', 'Time', 'TransactionID')
 
 transactions = fread('DATA-CRM/TRANSACTION.dat')
@@ -46,19 +48,15 @@ setkeyv(trans.items, keycols)
 
 ```
 
+```{r Merge, include = FALSE}
 ##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
-
-```{r Merge}
 result.transactions <- merge(transactions, trans.items, all = TRUE)
 result.transactions[, Date := as.Date(as.character.Date(Date), "%Y%m%d")]
 result.transactions <- na.omit(result.transactions, cols = "Date")
 ```
 
 
-## Gerar RFM Score com package rfm
-
-Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
-```{r RFM algorithm}
+```{r RFM algorithm, include = FALSE}
 analysis.date <- as.Date("2015-01-01")
 
 orders <- result.transactions[, .(CardID, Date, Amount)]
@@ -69,24 +67,13 @@ str(rfm_result)
 
 ```
 
-#1. Exploração e preparação dos dados
-
-## Tabela CARD.dat
-```{r CARD.dat}
+```{r include = FALSE}
 cards = fread("DATA-CRM/CARD.dat", stringsAsFactors = TRUE)
 ```
 
-### Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(cards)
-dim(cards)
-str(cards)
-nrow(cards[!complete.cases(cards), ])
-```
 
+```{r include = FALSE}
 ### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritalStatus há dados nulos que devem ser tratados também.
-
-```{r}
 
 cards[NumChildren < 0, NumChildren := 0]
 cards[YoungestChild < 0, YoungestChild := 0]
@@ -103,7 +90,6 @@ cards[NumChildren > 0 & HasChildren == 'N', HasChildren := 'Y']
 cards[NumChildren == 0 & HasChildren == 'N', YoungestChild := 0]
 
 
-
 # Verificamos que o MaritalStatus possui dados vazios
 table(cards$MaritalStatus)
 
@@ -111,19 +97,9 @@ cards[MaritalStatus == "", MaritalStatus := "O"]
 cards$MaritalStatus <- droplevels(cards$MaritalStatus)
 ```
 
-### Verificar se a tabela Card possui dados nulos
-```{r}
-table(is.na(cards))
-unique(cards)
-table(duplicated(cards))
 
-```
-
-
-#2. Pré-processamento dos dados
-
-## Dados dos clientes
-```{r juntar dados dos clientes}
+```{r juntar dados dos clientes, include = FALSE}
+#Dados dos Cliente
 df_customers <- merge(cards, rfm_result$rfm[, c(1, 9)], by.x = 'CardID', by.y = 'customer_id')
 
 df_customers[, CardStartDate := as.Date(as.character.Date(CardStartDate), "%Y%m%d")]
@@ -131,7 +107,7 @@ df_customers[, DateOfBirth := as.Date(as.character.Date(DateOfBirth), "%Y%m%d")]
 
 ```
 
-```{r criar as colunas com idade e anos de cliente}
+```{r criar as colunas com idade e anos de cliente, include = FALSE}
 
 # Calcular Idade do cliente
 yr = duration(num = 1, units = "years")
@@ -142,17 +118,11 @@ df_customers[, clientYears := round(interval(CardStartDate, analysis.date)/yr,di
 ```
 
 
-```{r retirar id e código postal, CardStartDate e DateOfBirth}
-
-#df_customers <- df_customers[, c(2,3,6,8:14)]
+```{r include = FALSE}
 
 df_customers$Gender <- factor(df_customers$Gender, levels = c("F", "M"), labels = c("Feminino", "Masculino"))
 df_customers$MaritalStatus <- factor(df_customers$MaritalStatus, levels = c("M", "S", "O"), labels = c("Casado", "Solteiro", "Outro"))
 df_customers$HasChildren <- factor(df_customers$HasChildren, levels = c("Y", "N"), labels = c("Sim","Não"))
-
-```
-
-```{r}
 
 df_customers$rfm_score_cat <- case_when(df_customers$rfm_score <= 233 ~ 'Sporadically',
                   between(df_customers$rfm_score, 234, 443) ~ 'Regular',
@@ -161,11 +131,19 @@ df_customers$rfm_score_cat <- case_when(df_customers$rfm_score <= 233 ~ 'Sporadi
 
 df_customers$rfm_score_cat <- as.factor(df_customers$rfm_score_cat)
 
+
+```
+
+Foi criada uma categoria para dividir os clientes por intervalos de idades. Os intervalos considerados foram: menor de 50 anos, maior ou igual a 50 e menor de 65 anos, maior ou igual a 65 anos.
+```{r }
 df_customers$ageInterval <- cut(df_customers$age, 
                       breaks = c(0, 50, 65, +Inf), 
                       labels = c("< 50", "< 65", ">= 65"), 
                       right = FALSE)
+```
 
+Verificação dos dados dos clientes.
+```{r Dados dos clientes}
 summary(df_customers)
 ```
 
@@ -173,7 +151,7 @@ summary(df_customers)
 ```{r}
 
 summary(df_customers$clientYears)
-# Amplitude de clientYears é pequena pelo que não será considerado
+# Amplitude de clientYears é pequena.
 
 # CardID é mantido para permitir a identificação das transações depois
 # da criação dos clusters; no entanto, não é utilizado para a criação dos clusters
@@ -386,8 +364,6 @@ dataPurchases <- result.purchases[, c("CardID", "Date", "PaymentMethod", "Amount
 
 
 ```{r}
-library("plyr")
-
 dataPurchases$PaymentMethod <- as.factor(dataPurchases$PaymentMethod)
 dataPurchases$ItemDescription <- as.factor(dataPurchases$ItemDescription)
 dataPurchases$CategoryDescription <- as.factor(dataPurchases$CategoryDescription)
