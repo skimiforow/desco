@@ -2,38 +2,42 @@
 title: "DESCO - Knowledge Discovery - Association Rules"
 author: "1141074 - Sérgio Silva | 1970400 - Pedro Neves | 1040706 - Sérgio Castro"
 date: "5/3/2018"
-output: html_document
-editor_options: 
+output:
+  pdf_document: default
+  editor_options: null
+  html_document: default
   chunk_output_type: console
+bibliography: bibliography.bib
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r Setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE, tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 ```
 
-#Limpeza do ambiente
 
-```{r Clean Environment, include=FALSE}
+```{r Limpeza das variáveis de ambiente, include = FALSE}
 rm(list = ls())
 ```
 
-#Bibliotecas necessárias
-```{r}
 
+```{r Bibliotecas necessarias, include=FALSE}
 library(data.table)
 library(rfm)
 library(lubridate)
+library(plyr)
 library(dplyr)
+library(ggplot2)
+library(forcats)
 
 ```
 
+Neste documento descreve-se a criação de modelos para identificar perfis de grupos de clientes, com o objetivo de efetuar recomendações dos produtos mais adequados para cada grupo de clientes.
 
-#Carregamento das tabelas de transações
+#1. Exploração e preparação dos dados
 
-The	 RFM	 (recency,	 frequency	 and	 monetary)	 model	 is	 the	 most	 widely	 used	 to	characterize customers	 because	 of its	 simplicity	and	good	 predictive	 capabilities.	 "Recency"	 represents	 the	time	since	the	last	purchase,	a	lower	value	corresponding	to	a	higher	probability	of	the	customer	making	a	repeat	 purchase.	 "Frequency"	 denotes	 the	 number	 of	 purchases	 within	 a	 specified	 time	 period;	 higher	frequency	indicates	higher	loyalty.	"Monetary"	means	 the	amount	of	money	spent	over this	specified	 time	period,	a	higher	value	indicates a	customer	that	the	company	should	focus on [2].
+Para o cálculo do valor de RFM dos clientes, foi efetuado tratamento dos dados das tabelas **TRANSACTION.dat**, **TRANSACTION_ITEM.dat** e **CARD.DAT**, idêntico ao realizado para a previsão de resposta a campanhas.
 
-Loading of the tables to create model RFM
-```{r Carregamento}
+```{r Cálculo de valor de RFM para os clientes, include = FALSE}
 keycols <- c('Store', 'Date', 'Time', 'TransactionID')
 
 transactions = fread('DATA-CRM/TRANSACTION.dat')
@@ -44,19 +48,15 @@ setkeyv(trans.items, keycols)
 
 ```
 
+```{r Merge, include = FALSE}
 ##Fazer 'join' das duas tabelas e remover observações contendo datas inválidas
-
-```{r Merge}
 result.transactions <- merge(transactions, trans.items, all = TRUE)
 result.transactions[, Date := as.Date(as.character.Date(Date), "%Y%m%d")]
 result.transactions <- na.omit(result.transactions, cols = "Date")
 ```
 
 
-## Gerar RFM Score com package rfm
-
-Calcula 'Recency', 'Frequency' e 'Monetary' a partir duma tabela de transações
-```{r RFM algorithm}
+```{r RFM algorithm, include = FALSE}
 analysis.date <- as.Date("2015-01-01")
 
 orders <- result.transactions[, .(CardID, Date, Amount)]
@@ -67,24 +67,13 @@ str(rfm_result)
 
 ```
 
-#1. Exploração e preparação dos dados
-
-## Tabela CARD.dat
-```{r CARD.dat}
+```{r include = FALSE}
 cards = fread("DATA-CRM/CARD.dat", stringsAsFactors = TRUE)
 ```
 
-### Verificação dos dados da tabela card, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(cards)
-dim(cards)
-str(cards)
-nrow(cards[!complete.cases(cards), ])
-```
 
+```{r include = FALSE}
 ### Tratar os dados nulos e errados nas colunas NumChildren e YoungestChild , pois tem valores negativos. No MaritalStatus há dados nulos que devem ser tratados também.
-
-```{r}
 
 cards[NumChildren < 0, NumChildren := 0]
 cards[YoungestChild < 0, YoungestChild := 0]
@@ -101,7 +90,6 @@ cards[NumChildren > 0 & HasChildren == 'N', HasChildren := 'Y']
 cards[NumChildren == 0 & HasChildren == 'N', YoungestChild := 0]
 
 
-
 # Verificamos que o MaritalStatus possui dados vazios
 table(cards$MaritalStatus)
 
@@ -109,19 +97,9 @@ cards[MaritalStatus == "", MaritalStatus := "O"]
 cards$MaritalStatus <- droplevels(cards$MaritalStatus)
 ```
 
-### Verificar se a tabela Card possui dados nulos
-```{r}
-table(is.na(cards))
-unique(cards)
-table(duplicated(cards))
 
-```
-
-
-#2. Pré-processamento dos dados
-
-## Dados dos clientes
-```{r juntar dados dos clientes}
+```{r juntar dados dos clientes, include = FALSE}
+#Dados dos Cliente
 df_customers <- merge(cards, rfm_result$rfm[, c(1, 9)], by.x = 'CardID', by.y = 'customer_id')
 
 df_customers[, CardStartDate := as.Date(as.character.Date(CardStartDate), "%Y%m%d")]
@@ -129,29 +107,22 @@ df_customers[, DateOfBirth := as.Date(as.character.Date(DateOfBirth), "%Y%m%d")]
 
 ```
 
-```{r criar as colunas com idade e anos de cliente}
-analysis_date <- as.Date("2015-01-01")
+```{r criar as colunas com idade e anos de cliente, include = FALSE}
 
 # Calcular Idade do cliente
 yr = duration(num = 1, units = "years")
-df_customers[, age := round(interval(DateOfBirth, analysis_date)/yr,digits = 0)]
+df_customers[, age := round(interval(DateOfBirth, analysis.date)/yr,digits = 0)]
 
 # Anos de cliente
-df_customers[, clientYears := round(interval(CardStartDate, analysis_date)/yr,digits = 0)]
+df_customers[, clientYears := round(interval(CardStartDate, analysis.date)/yr,digits = 0)]
 ```
 
 
-```{r retirar id e código postal, CardStartDate e DateOfBirth}
-
-df_customers <- df_customers[, c(2,3,6,8:14)]
+```{r include = FALSE}
 
 df_customers$Gender <- factor(df_customers$Gender, levels = c("F", "M"), labels = c("Feminino", "Masculino"))
 df_customers$MaritalStatus <- factor(df_customers$MaritalStatus, levels = c("M", "S", "O"), labels = c("Casado", "Solteiro", "Outro"))
 df_customers$HasChildren <- factor(df_customers$HasChildren, levels = c("Y", "N"), labels = c("Sim","Não"))
-
-```
-
-```{r}
 
 df_customers$rfm_score_cat <- case_when(df_customers$rfm_score <= 233 ~ 'Sporadically',
                   between(df_customers$rfm_score, 234, 443) ~ 'Regular',
@@ -160,27 +131,200 @@ df_customers$rfm_score_cat <- case_when(df_customers$rfm_score <= 233 ~ 'Sporadi
 
 df_customers$rfm_score_cat <- as.factor(df_customers$rfm_score_cat)
 
+
+```
+
+Foi criada uma categoria para dividir os clientes por intervalos de idades. Os intervalos considerados foram: menor de 50 anos, maior ou igual a 50 e menor de 65 anos, maior ou igual a 65 anos.
+```{r }
+df_customers$ageInterval <- cut(df_customers$age, 
+                      breaks = c(0, 50, 65, +Inf), 
+                      labels = c("< 50", "< 65", ">= 65"), 
+                      right = FALSE)
+```
+
+Verificação dos dados dos clientes.
+```{r Dados dos clientes}
 summary(df_customers)
 ```
 
 
 ```{r}
 
-df_customers$ageInterval <- cut(df_customers$age, 
-                      breaks = c(0, 50, 65, +Inf), 
-                      labels = c("< 50", "< 65", ">= 65"), 
-                      right = FALSE)
+summary(df_customers$clientYears)
+# Amplitude de clientYears é pequena.
 
+# CardID é mantido para permitir a identificação das transações depois
+# da criação dos clusters; no entanto, não é utilizado para a criação dos clusters
 
-dataCustomers <- df_customers[ ,c("Region", "Gender", "MaritalStatus", "HasChildren", 
-                                   "rfm_score_cat", "clientYears", "ageInterval")]
+dataCustomers <- df_customers[, c("CardID", "Region", "Gender", "MaritalStatus", "HasChildren", 
+                                   "rfm_score_cat", "clientYears", "age", "ageInterval")]
 
 
 with(dataCustomers,
   plot( ageInterval, rfm_score_cat, xlab = "Age", ylab = "RFM Score")
   )
 
+```
 
+# Clustering
+
+## Determine Best Number of Clusters in Customers Data Set
+```{r}
+#library(NbClust)
+#library(cluster)
+
+#set.seed(123)
+
+#gower.dist <- daisy(dataCustomers[1:1000, ], metric = "gower")
+
+#nb <- NbClust(diss = gower.dist, distance = NULL, min.nc = 2,
+#        max.nc = 10, method = "complete", index ="all")
+```
+
+
+##Model-based Clustering
+```{r}
+library(VarSelLCM)
+set.seed(123)
+
+# without ageInterval
+out <- VarSelCluster(dataCustomers[1:1000, -c("CardID", "ageInterval")], gvals = 2, nbcores = 2)
+
+#VarSelShiny(out)
+```
+
+
+## Hierarchical Clustering
+```{r}
+
+#clusters <- hclust(dist(data[, 5]))
+#plot(clusters)
+#clusterCut <- cutree(clusters, 3)
+
+library(cluster)
+set.seed(123)
+
+# without clientYears and age
+gower.dist <- daisy(dataCustomers[1:500, -c("CardID", "clientYears", "age")], metric = "gower")
+summary(gower.dist)
+
+gower.mat <- as.matrix(gower.dist)
+
+
+# Most similar pair
+dataCustomers[
+  which(gower.mat == min(gower.mat[gower.mat != min(gower.mat)]),
+        arr.ind = TRUE)[1, ], ]
+
+# Most dissimilar pair
+dataCustomers[
+  which(gower.mat == max(gower.mat[gower.mat != max(gower.mat)]),
+        arr.ind = TRUE)[1, ], ]
+
+
+# Divisive (DIANA)
+divisive.clust <- diana(as.matrix(gower.dist), 
+                  diss = TRUE, keep.diss = TRUE)
+
+plot(divisive.clust, main = "Divisive")
+
+# Agglomerative (AGNES)
+
+```
+
+
+## Categorial clustering with k-modes algorithm
+```{r}
+
+library(klaR)
+
+set.seed(123)
+
+# Set number of clusters
+kNumberClusters <- 3
+
+# without age and clientYears
+clusters.kmodes <- kmodes(dataCustomers[, -c("CardID", "age", "clientYears")], modes = kNumberClusters, iter.max = 10, weighted = FALSE)
+
+# Place customer in its cluster
+dataCustomers$cluster <- clusters.kmodes$cluster
+clusters <- split(dataCustomers, dataCustomers$cluster)
+
+```
+
+
+### Visualize differences between clusters
+```{r}
+dataCustomers[, .N, by = .(cluster, Gender)][order(cluster, Gender)]
+dataCustomers[, .N, by = .(cluster, Region)][order(cluster, Region)]
+dataCustomers[, .N, by = .(cluster, rfm_score_cat)][order(cluster, rfm_score_cat)]
+
+barplot(table(dataCustomers$Region, dataCustomers$cluster),
+        beside = T, col = c("red", "green"),
+        main = "Region by cluster")
+
+barplot(table(dataCustomers$Gender, dataCustomers$cluster),
+        beside = T, col = c("red", "green"),
+        main = "Gender by cluster")
+
+barplot(table(dataCustomers$MaritalStatus, dataCustomers$cluster),
+        beside = T, col = c("red", "green", "blue"),
+        main = "MaritalStatus by cluster")
+
+barplot(table(dataCustomers$rfm_score_cat, dataCustomers$cluster),
+        beside = T, col = c("red", "green", "blue"),
+        main = "RFM Score by cluster")
+
+barplot(table(dataCustomers$HasChildren, dataCustomers$cluster),
+        beside = T, col = c("red", "green"),
+        main = "HasChildren by cluster")
+
+barplot(table(dataCustomers$ageInterval, dataCustomers$cluster),
+        beside = T, col = c("red", "green", "blue"),
+        main = "Age by cluster")
+
+```
+
+### Differences between clusters
+```{r}
+dataCustomers.cl1 <- clusters[[1]]
+round(prop.table(table(dataCustomers.cl1$Region))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$Gender))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$MaritalStatus))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$HasChildren))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$rfm_score_cat))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$ageInterval))*100, digits = 2)
+```
+
+```{r}
+dataCustomers.cl2 <- clusters[[2]]
+round(prop.table(table(dataCustomers.cl2$Region))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$Gender))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$MaritalStatus))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$HasChildren))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$rfm_score_cat))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$ageInterval))*100, digits = 2)
+```
+
+```{r}
+dataCustomers.cl3 <- clusters[[3]]
+round(prop.table(table(dataCustomers.cl3$Region))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$Gender))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$MaritalStatus))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$HasChildren))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$rfm_score_cat))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$ageInterval))*100, digits = 2)
+```
+
+
+## Clustering by RFM Score
+```{r}
+# Divide customers by its RFM Score
+rfm.clusters <- split(dataCustomers, dataCustomers$rfm_score_cat)
+
+dataCustomers.rfmFrequent <- rfm.clusters$Frequent
+dataCustomers.rfmRegular <- rfm.clusters$Regular
+dataCustomers.rfmSporadically <- rfm.clusters$Sporadically
 ```
 
 
@@ -197,110 +341,187 @@ str(items)
 
 #Verificar se a tabela possui dados nulos
 table(is.na(items))
+
+
+## Tabelas CATEGORY.dat e SUBCATEGORY.dat
+categories <- fread("DATA-CRM/CATEGORY.dat", quote = "'")
+subcategories <- fread("DATA-CRM/SUBCATEGORY.dat", quote = "'")
+
 ```
 
 # Join com a tabela de transações + cardID
 ```{r}
 
-setkeyv(items, c('ItemCode'))
-setkeyv(result.transactions, c('ItemCode'))
+result.aux <- merge(items, categories, all.x = TRUE, by = 'CategoryCode')
+result.aux <- merge(result.aux, subcategories, all.x = TRUE, by = 'SubCategoryCode')
 
-result.purchases <- merge(result.transactions, items[,c(1:2, 5)], all.x = TRUE, by.x = 'ItemCode', by.y = 'ItemCode')
+result.purchases <- merge(result.transactions, result.aux[ ,c(3:5, 7:8)], all.x = TRUE, by = 'ItemCode')
 
-
-df_purchases <- result.purchases
-
-```
-
-
-
-
-```{r}
-#Categorial clustering with k-modes algorithm
-library(klaR)
-
-set.seed(123)
-
-#(cluster.results <- kmodes(data[, 6:7], 9, iter.max = 10, weighted = TRUE))
-#plot(data[, 6:7], col = cluster.results$cluster)
-
-(clusters5 <- kmodes(data, 5, iter.max = 10, weighted = FALSE))
-(clusters3 <- kmodes(data, 3, iter.max = 10, weighted = FALSE))
-
-plot(data, col=cluster.results$cluster)
-
-```
-
-Hierarchical Clustering
-```{r}
-
-
-clusters <- hclust(dist(data[, 5]))
-#plot(clusters)
-clusterCut <- cutree(clusters, 3)
-
-
-
-library(cluster)
-library(nbcluster)
-
-gower.dist <- daisy(data[1:1000, ], metric = "gower")
-
-# Divisive (DIANA)
-divisive.clust <- diana(as.matrix(gower.dist), 
-                  diss = TRUE, keep.diss = TRUE)
-
-plot(divisive.clust, main = "Divisive")
-
-# Agglomerative (AGNES)
+# Se retirados 'ItemNumber' e 'TransactionID' passam a existir observações repetidas
+dataPurchases <- result.purchases[, c("CardID", "Date", "PaymentMethod", "Amount", "ItemDescription", "CategoryDescription", "SubCategoryDescription", "BrandCode", "ItemNumber", "TransactionID")]
 
 ```
 
 
-
-## Tabela CATEGORY.dat
 ```{r}
-Categories <- fread("DATA-CRM/CATEGORY.dat")
-```
-
-### Verificação dos dados da tabela category, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(Categories)
-dim(Categories)
-str(Categories)
-```
-
-### Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(Categories))
-```
+dataPurchases$PaymentMethod <- as.factor(dataPurchases$PaymentMethod)
+dataPurchases$ItemDescription <- as.factor(dataPurchases$ItemDescription)
+dataPurchases$CategoryDescription <- as.factor(dataPurchases$CategoryDescription)
+dataPurchases$SubCategoryDescription <- as.factor(dataPurchases$SubCategoryDescription)
+dataPurchases$BrandCode <- as.factor(dataPurchases$BrandCode)
 
 
-## Tabela SUBCATEGORY.dat
-```{r}
-Subcategories <- fread("DATA-CRM/SUBCATEGORY.dat")
-```
+# Split dataPurchases by clusters
+dataPurchases.cl1 <- merge(dataPurchases, dataCustomers.cl1[, c("CardID")], by = "CardID")
+dataPurchases.cl2 <- merge(dataPurchases, dataCustomers.cl2[, c("CardID")], by = "CardID")
+dataPurchases.cl3 <- merge(dataPurchases, dataCustomers.cl3[, c("CardID")], by = "CardID")
 
-### Verificação dos dados da tabela subcategory, tal como o número de colunas e linhas, bem como se os dados foram corretamente carregados.
-```{r}
-summary(Subcategories)
-dim(Subcategories)
-str(Subcategories)
-```
-### Verificar se a tabela possui dados nulos
-```{r}
-table(is.na(Subcategories))
+# Split dataPurchases by rfm clusters
+dataPurchases.rmfFrequent <- merge(dataPurchases, dataCustomers.rfmFrequent[, c("CardID")], by = "CardID")
+dataPurchases.rfmRegular <- merge(dataPurchases, dataCustomers.rfmRegular[, c("CardID")], by = "CardID")
+dataPurchases.rfmSporadically <- merge(dataPurchases, dataCustomers.rfmSporadically[, c("CardID")], by = "CardID")
+
 ```
 
 
+# Vendas por subcategorias de produtos
+```{r}
+
+# Frequência das subcategorias de produtos no cluster 1
+# ordenado por ordem descrescente
+sub_ord <- factor(dataPurchases.cl1$SubCategoryDescription,
+                  levels = rev(levels(fct_infreq(dataPurchases.cl1$SubCategoryDescription))))
+
+ggplot(as.data.frame(dataPurchases.cl1$SubCategoryDescription), aes(x = sub_ord)) +
+  geom_bar() + labs(x = "Sub Category", y = "Freq") + coord_flip()
+
+# Alternativamente
+x <- as.data.frame(sort(
+  table(dataPurchases.cl1$SubCategoryDescription, dnn = c("SubCategory")), decreasing = F))
+
+ggplot(x, aes(x = reorder(SubCategory, Freq), y = Freq)) +
+  geom_bar(stat = 'identity') + labs(x = "Sub Category", y = "Freq") + coord_flip()
 
 
+
+par(las = 2)
+par(mar = c(5, 12, 5, 2))
+
+plot(dataPurchases.cl1$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.cl2$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.cl3$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+
+plot(dataPurchases.rfmRegular$SubCategoryDescription, col=rainbow(11))
+plot(dataPurchases.rmfFrequent$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.rfmSporadically$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+
+# Todas as subcategorias de produtos
+levels(dataPurchases$SubCategoryDescription)
+
+# Número de vendas por subcategorias
+baskets.subcat <- count(dataPurchases, c("dataPurchases$SubCategoryDescription"))
+baskets.subcat <- baskets.subcat[order(-baskets.subcat$freq), ]
+colnames(baskets.subcat) <- c("subcategory", "freq")
+
+length(unique(baskets.subcat$subcategory))       # 47 subcategorias 
+
+# Número médio de itens por basket (subcategoria)
+summary(baskets.subcat$freq)
+
+```
+
+# Vendas por categorias de produtos
+```{r}
+plot(dataPurchases$CategoryDescription, col=rainbow(11))
+
+boxplot( Amount ~ CategoryDescription, data = dataPurchases, main = "Valor das Vendas por Categoria", col = rainbow(11), outline = TRUE)
+
+barplot(table(dataPurchases$PaymentMethod, dataPurchases$CategoryDescription),
+        beside = T, col = c("red", "green", "blue", "yellow"),
+        main = "Métodos de Pagamento por Categoria", ylim = c(0, 120000))
+
+legend("topright", levels(dataPurchases$PaymentMethod), bty = "n", fill=c("red", "green", "blue", "yellow"))
+
+# Todas as categorias de produtos
+levels(dataPurchases$CategoryDescription)
+
+# Número de vendas por categorias
+baskets.cat <- count(dataPurchases, c("dataPurchases$CategoryDescription"))
+baskets.cat <- baskets.cat[order(-baskets.cat$freq), ]
+colnames(baskets.cat) <- c("category", "freq")
+
+length(unique(baskets.cat$category))       # 7 categorias 
+
+# Número médio de itens por basket
+summary(baskets.cat$freq)
+
+```
+
+```{r}
+library(arules)
+
+basket <- as(split(as.vector(dataPurchases$SubCategoryDescription), as.vector(dataPurchases$CardID)), "transactions")
+
+class(basket)
+summary(basket)
+dim(basket)
+
+basket@itemInfo   # gives all the items of the basket
+
+#View the first five transactions
+inspect(basket[1:5])
+
+```
 
 
 ```{r}
+# Occurrences of each item - Support
+itemFreq <- itemFrequency(basket)
 
-setkey(Categories, "CategoryCode")
-setkey(Subcategories, "SubCategoryCode")
-Result <-  Categories[Subcategories, ]
+sort(itemFreq, decreasing = T)[1:3]
+summary(itemFreq)
 
+#View the frequency of the first three items
+itemFrequency(basket[, 1:3])
+
+#Shows in a histogram plot items with at least s support
+with(s <- 0.20,
+  itemFrequencyPlot(basket, support = s)
+)
+```
+
+#Visualização da matriz de produtos comprados e respetiva dispersão.
+```{r}
+#image(basket[1:50])
+image(sample(basket, 50)) # 50 linhas
+```
+
+#Algoritmo Apriori para extração de Regras de Associação 
+#Sup min = 5% e Conf min = 80%
+```{r}
+sup.min = 0.05
+conf.min = 0.80
+
+basketRules <- apriori(basket, parameter = list(support = sup.min, confidence = conf.min, minlen = 2))
+summary(basketRules)
+```
+
+```{r}
+measures <- interestMeasure(basketRules, measure = c("coverage", "leverage", "conviction"), transactions = basket)
+
+summary(measures)
+
+
+# Top rules by lift
+inspect(head(basketRules, n = 5, by = "lift"))
+
+```
+
+
+```{r}
+library(arulesViz)
+
+basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2, maxlen = 20))
+
+summary(basketRules2)
 ```
