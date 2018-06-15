@@ -231,7 +231,7 @@ card[MaritalStatus == "", MaritalStatus := "O"]
 card$MaritalStatus <- droplevels(card$MaritalStatus)
 ```
 
-##2. Pre-processamento dos dados
+##2. Pré-processamento dos dados
 
 Após o tratamento dos dados é agora necessário a preparação dos mesmos para a aplicação dos algoritmos de classificação.
 
