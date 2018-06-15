@@ -25,6 +25,7 @@ library(rfm)
 library(lubridate)
 library(dplyr)
 library(ggplot2)
+library(forcats)
 
 ```
 
@@ -189,6 +190,20 @@ with(dataCustomers,
 
 # Clustering
 
+## Determine Best Number of Clusters in Customers Data Set
+```{r}
+#library(NbClust)
+#library(cluster)
+
+#set.seed(123)
+
+#gower.dist <- daisy(dataCustomers[1:1000, ], metric = "gower")
+
+#nb <- NbClust(diss = gower.dist, distance = NULL, min.nc = 2,
+#        max.nc = 10, method = "complete", index ="all")
+```
+
+
 ##Model-based Clustering
 ```{r}
 library(VarSelLCM)
@@ -197,7 +212,7 @@ set.seed(123)
 # without ageInterval
 out <- VarSelCluster(dataCustomers[1:1000, -c("CardID", "ageInterval")], gvals = 2, nbcores = 2)
 
-VarSelShiny(out)
+#VarSelShiny(out)
 ```
 
 
@@ -212,18 +227,18 @@ library(cluster)
 set.seed(123)
 
 # without clientYears and age
-gower.dist <- daisy(dataCustomers[1:10000, -c("CardID", "clientYears", "age")], metric = "gower")
+gower.dist <- daisy(dataCustomers[1:500, -c("CardID", "clientYears", "age")], metric = "gower")
 summary(gower.dist)
 
 gower.mat <- as.matrix(gower.dist)
 
 
-# Output most similar pair
+# Most similar pair
 dataCustomers[
   which(gower.mat == min(gower.mat[gower.mat != min(gower.mat)]),
         arr.ind = TRUE)[1, ], ]
 
-# Output most dissimilar pair
+# Most dissimilar pair
 dataCustomers[
   which(gower.mat == max(gower.mat[gower.mat != max(gower.mat)]),
         arr.ind = TRUE)[1, ], ]
@@ -257,39 +272,14 @@ clusters.kmodes <- kmodes(dataCustomers[, -c("CardID", "age", "clientYears")], m
 dataCustomers$cluster <- clusters.kmodes$cluster
 clusters <- split(dataCustomers, dataCustomers$cluster)
 
+```
+
+
+### Visualize differences between clusters
+```{r}
 dataCustomers[, .N, by = .(cluster, Gender)][order(cluster, Gender)]
 dataCustomers[, .N, by = .(cluster, Region)][order(cluster, Region)]
 dataCustomers[, .N, by = .(cluster, rfm_score_cat)][order(cluster, rfm_score_cat)]
-```
-
-```{r}
-round(prop.table(table(clusters[[1]]$Region))*100, digits = 2)
-round(prop.table(table(clusters[[1]]$Gender))*100, digits = 2)
-round(prop.table(table(clusters[[1]]$MaritalStatus))*100, digits = 2)
-round(prop.table(table(clusters[[1]]$HasChildren))*100, digits = 2)
-round(prop.table(table(clusters[[1]]$rfm_score_cat))*100, digits = 2)
-round(prop.table(table(clusters[[1]]$ageInterval))*100, digits = 2)
-```
-
-```{r}
-round(prop.table(table(clusters[[2]]$Region))*100, digits = 2)
-round(prop.table(table(clusters[[2]]$Gender))*100, digits = 2)
-round(prop.table(table(clusters[[2]]$MaritalStatus))*100, digits = 2)
-round(prop.table(table(clusters[[2]]$HasChildren))*100, digits = 2)
-round(prop.table(table(clusters[[2]]$rfm_score_cat))*100, digits = 2)
-round(prop.table(table(clusters[[2]]$ageInterval))*100, digits = 2)
-```
-
-```{r}
-round(prop.table(table(clusters[[3]]$Region))*100, digits = 2)
-round(prop.table(table(clusters[[3]]$Gender))*100, digits = 2)
-round(prop.table(table(clusters[[3]]$MaritalStatus))*100, digits = 2)
-round(prop.table(table(clusters[[3]]$HasChildren))*100, digits = 2)
-round(prop.table(table(clusters[[3]]$rfm_score_cat))*100, digits = 2)
-round(prop.table(table(clusters[[3]]$ageInterval))*100, digits = 2)
-```
-
-```{r}
 
 barplot(table(dataCustomers$Region, dataCustomers$cluster),
         beside = T, col = c("red", "green"),
@@ -315,13 +305,49 @@ barplot(table(dataCustomers$ageInterval, dataCustomers$cluster),
         beside = T, col = c("red", "green", "blue"),
         main = "Age by cluster")
 
+```
 
+### Differences between clusters
+```{r}
+dataCustomers.cl1 <- clusters[[1]]
+round(prop.table(table(dataCustomers.cl1$Region))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$Gender))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$MaritalStatus))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$HasChildren))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$rfm_score_cat))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl1$ageInterval))*100, digits = 2)
 ```
 
 ```{r}
-dataCustomers.cl1 <- dataCustomers[cluster == 1, .N, by = .(cluster, Gender)][order(cluster, Gender)]
+dataCustomers.cl2 <- clusters[[2]]
+round(prop.table(table(dataCustomers.cl2$Region))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$Gender))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$MaritalStatus))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$HasChildren))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$rfm_score_cat))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl2$ageInterval))*100, digits = 2)
 ```
 
+```{r}
+dataCustomers.cl3 <- clusters[[3]]
+round(prop.table(table(dataCustomers.cl3$Region))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$Gender))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$MaritalStatus))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$HasChildren))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$rfm_score_cat))*100, digits = 2)
+round(prop.table(table(dataCustomers.cl3$ageInterval))*100, digits = 2)
+```
+
+
+## Clustering by RFM Score
+```{r}
+# Divide customers by its RFM Score
+rfm.clusters <- split(dataCustomers, dataCustomers$rfm_score_cat)
+
+dataCustomers.rfmFrequent <- rfm.clusters$Frequent
+dataCustomers.rfmRegular <- rfm.clusters$Regular
+dataCustomers.rfmSporadically <- rfm.clusters$Sporadically
+```
 
 
 ## Dados das compras
@@ -343,7 +369,6 @@ table(is.na(items))
 categories <- fread("DATA-CRM/CATEGORY.dat", quote = "'")
 subcategories <- fread("DATA-CRM/SUBCATEGORY.dat", quote = "'")
 
-
 ```
 
 # Join com a tabela de transações + cardID
@@ -359,24 +384,6 @@ dataPurchases <- result.purchases[, c("CardID", "Date", "PaymentMethod", "Amount
 
 ```
 
-#Determine Best Number of Clusters in Customers Data Set
-```{r}
-#library(NbClust)
-#library(cluster)
-
-#set.seed(123)
-
-#gower.dist <- daisy(dataCustomers[1:1000, ], metric = "gower")
-
-#nb <- NbClust(diss = gower.dist, distance = NULL, min.nc = 2,
-#        max.nc = 10, method = "complete", index ="all")
-```
-
-
-
-
-
-
 
 ```{r}
 library("plyr")
@@ -387,15 +394,50 @@ dataPurchases$CategoryDescription <- as.factor(dataPurchases$CategoryDescription
 dataPurchases$SubCategoryDescription <- as.factor(dataPurchases$SubCategoryDescription)
 dataPurchases$BrandCode <- as.factor(dataPurchases$BrandCode)
 
-head(dataPurchases)
-str(dataPurchases)
+
+# Split dataPurchases by clusters
+dataPurchases.cl1 <- merge(dataPurchases, dataCustomers.cl1[, c("CardID")], by = "CardID")
+dataPurchases.cl2 <- merge(dataPurchases, dataCustomers.cl2[, c("CardID")], by = "CardID")
+dataPurchases.cl3 <- merge(dataPurchases, dataCustomers.cl3[, c("CardID")], by = "CardID")
+
+# Split dataPurchases by rfm clusters
+dataPurchases.rmfFrequent <- merge(dataPurchases, dataCustomers.rfmFrequent[, c("CardID")], by = "CardID")
+dataPurchases.rfmRegular <- merge(dataPurchases, dataCustomers.rfmRegular[, c("CardID")], by = "CardID")
+dataPurchases.rfmSporadically <- merge(dataPurchases, dataCustomers.rfmSporadically[, c("CardID")], by = "CardID")
 
 ```
 
 
 # Vendas por subcategorias de produtos
 ```{r}
-plot(dataPurchases$SubCategoryDescription, col=rainbow(11))
+
+# Frequência das subcategorias de produtos no cluster 1
+# ordenado por ordem descrescente
+sub_ord <- factor(dataPurchases.cl1$SubCategoryDescription,
+                  levels = rev(levels(fct_infreq(dataPurchases.cl1$SubCategoryDescription))))
+
+ggplot(as.data.frame(dataPurchases.cl1$SubCategoryDescription), aes(x = sub_ord)) +
+  geom_bar() + labs(x = "Sub Category", y = "Freq") + coord_flip()
+
+# Alternativamente
+x <- as.data.frame(sort(
+  table(dataPurchases.cl1$SubCategoryDescription, dnn = c("SubCategory")), decreasing = F))
+
+ggplot(x, aes(x = reorder(SubCategory, Freq), y = Freq)) +
+  geom_bar(stat = 'identity') + labs(x = "Sub Category", y = "Freq") + coord_flip()
+
+
+
+par(las = 2)
+par(mar = c(5, 12, 5, 2))
+
+plot(dataPurchases.cl1$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.cl2$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.cl3$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+
+plot(dataPurchases.rfmRegular$SubCategoryDescription, col=rainbow(11))
+plot(dataPurchases.rmfFrequent$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.rfmSporadically$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
 
 # Todas as subcategorias de produtos
 levels(dataPurchases$SubCategoryDescription)
@@ -460,7 +502,7 @@ inspect(basket[1:5])
 # Occurrences of each item - Support
 itemFreq <- itemFrequency(basket)
 
-sort(itemFreq, decreasing = T)
+sort(itemFreq, decreasing = T)[1:3]
 summary(itemFreq)
 
 #View the frequency of the first three items
@@ -503,7 +545,7 @@ inspect(head(basketRules, n = 5, by = "lift"))
 ```{r}
 library(arulesViz)
 
-basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2))
+basketRules2 <- apriori(basket, parameter = list(support = 0.01, confidence = 0.05, minlen = 2, maxlen = 20))
 
 summary(basketRules2)
 ```
