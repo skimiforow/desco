@@ -213,7 +213,7 @@ Analisando as duas variáveis mais discriminativas, pode-se verificar que no caso
 
 Novamente, como a maioria dos atributos não são númericos, é necessário utilizar uma métrica que seja adequada a estes dados. Uma possibilidade é a utilização da métrica de Gower [Ref. @Martin]. A função 'daisy()' do package 'cluster' contem uma implementação desta métrica.
 Para o calculo da matriz de distância não foram utilizados os atributos 'age' e 'clientYears'.
-De notar que a utilização desta métrica obriga a manter uma matriz NxN em memória, o que muito rapidamente se torna , pelo que apenas consideramos um subconjunto dos dados.  
+De notar que a utilização desta métrica obriga a manter uma matriz NxN em memória, o que muito rapidamente se torna significativo, pelo que apenas consideramos um subconjunto dos dados.  
 
 ```{r}
 
@@ -281,7 +281,7 @@ dataCustomers[pam_fit$medoids, ]
 ```
 
 
-## *Clustering* com o algoritmo k-modes
+## Clustering com o algoritmo k-modes
 *k-modes* é uma variante do *k-means* que é aplicável a dados categóricos [Ref. @Huang1998].
 ```{r}
 
@@ -379,7 +379,9 @@ dataCustomers.rfmSporadically <- rfm.clusters$Sporadically
 ```
 
 
-## Processamento dos dados compras
+# 3. Produtos recomendados por cluster 
+
+## Processamento dos dados das transações
 
 Depois de efetuado o *clustering*, pretende-se agora efetuar o cálculo de regras de associação das transações efetuadas pelos clientes de cada grupo. Para isso, é necessário criar as observações correspondentes aos items e respetiva categorias e subcategorias.
 
@@ -498,7 +500,7 @@ Novamente se observa que os clusters apresentam similitudes, por exemplo, as sub
 ```{r include = FALSE}
 
 plot(dataPurchases.rfmRegular$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
-plot(dataPurchases.rmfFrequent$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
+plot(dataPurchases.rfmFrequent$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
 plot(dataPurchases.rfmSporadically$SubCategoryDescription, col=rainbow(11), horiz = TRUE)
 ```
 
@@ -528,7 +530,7 @@ summary(baskets.subcat$freq)
 ```
 
 
-### Visualização dos cinco primeiro cestos
+### Visualização dos cinco primeiros cestos
 ```{r}
 
 basket <- as(split(as.vector(dataPurchases.rfmFrequent$SubCategoryDescription), as.vector(dataPurchases.rfmRegular$CardID)), "transactions")
@@ -563,14 +565,13 @@ with(s <- 0.20,
 Verifica-se que existem 8 produtos com suporte superior a 20%.
 
 
-#Visualização da matriz de produtos comprados e respetiva dispersão.
+### Visualização da matriz de produtos comprados e respetiva dispersão.
 ```{r}
 #image(basket[1:50])
 image(sample(basket, 50)) # 50 linhas
 ```
 
 #Algoritmo Apriori para extração de Regras de Associação 
-#Sup min = 5% e Conf min = 80%
 ```{r}
 sup.min = 0.10
 conf.min = 0.60
@@ -659,7 +660,7 @@ with(s <- 0.20,
 
 Existem apenas três produtos com suporte superior a 20%, o que se não será surpreendente neste tipo de clientes.
 
-###Algoritmo Apriori para extração de Regras de Associação 
+### Algoritmo Apriori para extração de Regras de Associação 
 ```{r}
 sup.min = 0.05
 conf.min = 0.60
@@ -785,11 +786,14 @@ plot(basketRules2, control = list(main = "Two-key plot"), shading = "order")
 ```
 
 
-## Conclusões
+# Conclusão
+Os dados de origem utilizados não permitem obter resultados muito satisfatórios, visto que estes não permitem a criação de clusters suficientemente distintos entre si, dificultado ainda pela presença de dados categórios. 
+Os agrupamentos criados com base no *RFM Score* sofrem também deste problema. No entanto, um resultado que está de acordo com esta escolha é a quantidade de produtos com suporte mínimo mais elevado. Por exemplo, com suporte mínimo de 20%, o clusters dos clientes do tipo frequente tem o dobro do que o cluster de clientes do tipo regular.
 
 
-# Vendas por categorias de produtos
+
 ```{r include = FALSE}
+## Vendas por categorias de produtos
 plot(dataPurchases$CategoryDescription, col=rainbow(11))
 
 boxplot( Amount ~ CategoryDescription, data = dataPurchases, main = "Valor das Vendas por Categoria", col = rainbow(11), outline = TRUE)
