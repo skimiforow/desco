@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE,error = TRUE,tidy.opts = list(width.cutoff = 6
 
 Este documento é focado na parte do processo relativo à classificação de clientes, o objetivo é futuramente conseguirmos prever tendo em conta novos clientes, qual a reposta que se irá ter às campanhas. 
 
-Numa primeira fase vamos esclher que dados dos clientes vamos analisar e como analisar, bem como, algum tipo de tratamento que seja possível efetuar.
+Numa primeira fase vamos escolher que dados dos clientes vamos analisar e como analisar, bem como, algum tipo de tratamento que seja possível efetuar.
 
 Para o calculo da métrica relativa ao RFM será necessário avaliar as tabelas **TRANSACTION.dat** e **TRANSACTION_ITEM.dat**
 
@@ -85,7 +85,7 @@ O modelo **RFM** (*Recency*, *Frequency*, *Monetary*) é um modelo muito usado pa
 
 3. Por fim, o atributo **Monetary** mostra a quantidade de dinheiro gasta durante o período específico, onde um valor superior indica um cliente que gastou mais dinheiro.
 
-Por defeito, o RFM atribui valores de 1 a 5 e apesar destes valores poderem ser configuráveis, consideramos que são suficientes para avaliar os dados dos clientes. As divisões dos cestos feita com o valor de 5, divide os valores a cada 20% dos dados.
+Por defeito, o RFM atribui valores de 1 a 5 e apesar destes valores poderem ser configuráveis, consideramos que são suficientes para avaliar os dados dos clientes. As divisões feitas com 5 valores, dividem os valores a cada 20% dos dados.
 [Ref. @Birant2011]
 
 Calculo do *Recency*, *Frequency*, *Monetary* a partir da tabela de transacões, resultado do *merge* anterior.
@@ -115,10 +115,14 @@ rfm_bar_chart(rfm_result)
 rfm_histograms(rfm_result)
 
 ## Correlacionar a data da última compra com a frequência de compra
+
+# A maior mancha de clientes ocorre nos clientes esporádicos e que gastam pouco dinheiro.
 rfm_rm_plot(rfm_result, point_color = "blue", xaxis_title = "Monetary",
 yaxis_title = "Recency", plot_title = "Recency vs Monetary")
 
 ## Correlacionar a Frequência com o valor gasto
+
+# Podemos verificar que os cliente que compram mais regularmente gastam menos dinheiro.
 rfm_fm_plot(rfm_result, point_color = "blue", xaxis_title = "Monetary",
 yaxis_title = "Frequency", plot_title = "Frequency vs Monetary")
 
@@ -219,9 +223,9 @@ card$HasChildren[card$NumChildren == 0] <- 'N'
 
 ## NumChildren>0 e HasChildren
 card[card$NumChildren > 0 & card$HasChildren == 'N', .N]
-card$HasChildren[card$NumChildren > 0] <- 'Y'
 
 # Verificamos que ficou corrigido, em que agora todos os registos em que *HasChildren* está a N, o *NumChildren* está a zero.
+card$HasChildren[card$NumChildren > 0] <- 'Y'
 plot(card$NumChildren~card$HasChildren)
 
 ## Corrigir os dados de *MaritalStatus* sem valor, para não escolher aleatóriamente o Casado ou Solteiro, decidimos criar o atributo Outro.
@@ -299,7 +303,7 @@ round(prop.table(table(df_card$Responded))*100,digits = 2)
 
 ```
 
-Podemos verificar que a proporção de *Sim* e *Não* está muito desbalanceada, pelo que irá ser necessário fazer algo para balancear as proporções, visto que alguns algoritmos não vão conseguir prever o *Sim*.
+Podemos verificar que a proporção de *Sim* e *Não* está muito desbalanceada, pelo que irá ser necessário fazer algo para balancear as proporções, visto que alguns algoritmos não vão conseguir prever o *Sim*, devido à baixa percentagem de ocorrência.
 
 ##3. Criação da função para avaliação de modelos de Data-Mining e data-frame para guardar os resultados.
 ```{r criacao de funcao para avaliar os modelos e vetor para guardar os resultados, include=TRUE, eval=TRUE}
@@ -337,10 +341,13 @@ results.df <- data.frame(model = character(),
 
 #### Devido a taxa de *Sim* no atributo *Responded* ser inferior a 20%, foi necessario efetuar um Oversamppling dos dados positivos para equilibrar os mesmos.
 
-## Holdout stratified
+### Holdout stratified
+
+A divisão dos dados é feita considerando 70% dos mesmos para treino dos modelos e posteriormente os restantes 30% para a evaliação.
+O Oversampling apenas aplicado ao conjunto do treino, serve assim para colocar os valores de *sim* e *não* em percetagens equivalentes na contrução do modelo.
 ```{r Oversampling dos dados, include=TRUE}
 ## Holdout stratified
-   
+  
 set.seed(123)
 
 
@@ -930,8 +937,7 @@ results.new_df <- data.frame(model = character(),
 
 
 ## Holdout stratified, neste caso nao consideramos a necessidade de fazer o oversampling pois os valores sao relativamente equilibrados.
-```{r Holdout stratified from second classification}
-
+```{r Holdout stratified para a segunda classificacao}
 
 set.seed(123)
 
